@@ -1,4 +1,6 @@
-const NAV = ["Home", "Notifications", "Messages", "Profile"];
+import Link from "next/link";
+
+const NAV = ["Home", "Notifications", "Messages"];
 
 const CATEGORIES = ["All items", "Furniture", "Electronics", "Textbooks", "Clothing", "Kitchen", "Free items", "Other"];
 
@@ -41,6 +43,9 @@ export default function Home() {
                 {n}
               </a>
             ))}
+            <Link href="/settings" className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+              Settings
+            </Link>
             <a href="#" className="btn btn-primary">Sell</a>
           </nav>
         </div>
