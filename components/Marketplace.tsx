@@ -6,6 +6,7 @@ import { supabase, imageUrl } from "@/lib/supabase";
 import { CAMPUSES, CATEGORIES, CONDITIONS, EXAMPLES, label, price, type Product } from "@/lib/data";
 import { AuthModal, ProductModal, SellModal } from "./Modals";
 import ChatWidget from "./ChatWidget";
+import NotificationBell from "./NotificationBell";
 
 type Filters = { category: string; campus: string; condition: string; maxPrice: string; sort: string };
 const NO_FILTERS: Filters = { category: "", campus: "", condition: "", maxPrice: "", sort: "newest" };
@@ -125,14 +126,6 @@ export default function Marketplace() {
     setChatOpen(true);
   }
 
-  const buy = (p: Product) =>
-    openChat(
-      p,
-      p.price_cents === 0
-        ? `Hi! I'd like to claim "${p.title}". When and where can I pick it up?`
-        : `Hi! I'd like to buy "${p.title}" for ${price(p.price_cents)}. When and where can we meet?`,
-    );
-
   const pill = (on: boolean) =>
     `whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition ${on ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-ink hover:bg-mist"}`;
   const setF = (k: keyof Filters, v: string) => setFilters((f) => ({ ...f, [k]: v }));
@@ -198,7 +191,24 @@ export default function Marketplace() {
             )}
           </div>
 
-          <nav className="ml-auto flex items-center gap-2">
+          <nav className="ml-auto flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => (userId ? setChatOpen(!chatOpen) : setAuthOpen(true))}
+              aria-label="Messages"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-brand hover:bg-mist"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+              </svg>
+            </button>
+            <NotificationBell
+              userId={userId}
+              onNeedLogin={() => setAuthOpen(true)}
+              onOpenConversation={(id) => {
+                setChatId(id);
+                setChatOpen(true);
+              }}
+            />
             <div className="flex rounded-lg border border-slate-300 p-0.5">
               <button onClick={() => setTab("buy")} className={`rounded-md px-4 py-1.5 text-sm font-semibold ${tab === "buy" ? "bg-brand text-white" : "text-brand hover:bg-mist"}`}>Buy</button>
               <button onClick={() => { setTab("sell"); requireLogin(); }} className={`rounded-md px-4 py-1.5 text-sm font-semibold ${tab === "sell" ? "bg-brand text-white" : "text-brand hover:bg-mist"}`}>Sell</button>
@@ -298,8 +308,14 @@ export default function Marketplace() {
           product={selected}
           userId={userId}
           onClose={() => setSelected(null)}
-          onBuy={buy}
-          onMessage={(p) => openChat(p)}
+          onMessage={(p) =>
+            openChat(
+              p,
+              p.price_cents === 0
+                ? `Hi! Is "${p.title}" still available? I'd love to take it off your hands.`
+                : `Hi! Is "${p.title}" still available?`,
+            )
+          }
           onChanged={() => { setSelected(null); load(); }}
         />
       )}

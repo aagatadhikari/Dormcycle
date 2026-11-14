@@ -204,14 +204,12 @@ export function ProductModal({
   product,
   userId,
   onClose,
-  onBuy,
   onMessage,
   onChanged,
 }: {
   product: Product;
   userId: string | null;
   onClose: () => void;
-  onBuy: (p: Product) => Promise<string | void>;
   onMessage: (p: Product) => Promise<string | void>;
   onChanged: () => void;
 }) {
@@ -291,13 +289,12 @@ export function ProductModal({
             <button disabled={busy} onClick={() => run(remove)} className="btn border border-red-300 bg-white text-red-700 hover:bg-red-50">Delete</button>
           </div>
         ) : available ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button disabled={busy} onClick={() => run(() => onBuy(product))} className="btn btn-primary">
-              {product.price_cents === 0 ? "Claim it" : `Buy · ${price(product.price_cents)}`}
+          <div className="space-y-2">
+            <button disabled={busy} onClick={() => run(() => onMessage(product))} className="btn btn-primary w-full">
+              Message seller
             </button>
-            <button disabled={busy} onClick={() => run(() => onMessage(product))} className="btn btn-outline">Message seller</button>
-            <p className="text-xs text-ink sm:col-span-2">
-              Buying tells the seller you want it and opens a chat to set up a campus handoff. Pay when you meet; online payment is coming soon.
+            <p className="text-xs text-ink">
+              Opens a chat with the seller to ask about the item and set up a campus handoff. Agree on payment between yourselves when you meet.
             </p>
           </div>
         ) : (
