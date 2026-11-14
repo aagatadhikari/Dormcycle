@@ -1,2 +1,0 @@
-import Link from "next/link";
-export default function MessagesPage() { return <main className="mx-auto max-w-5xl px-6 py-10"><Link href="/" className="text-emerald-800">← DormCycle</Link><h1 className="mt-6 text-3xl font-bold">Messages</h1><div className="mt-8 rounded-2xl border border-stone-200 bg-white p-8"><p className="font-semibold">Your conversations will appear here.</p><p className="mt-2 text-stone-600">Supabase Realtime chat will be enabled after credentials, database schema, and participant security policies are configured.</p></div></main>; }

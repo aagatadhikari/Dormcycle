@@ -1,48 +1,120 @@
 import Link from "next/link";
 
-const categories = ["Furniture", "Electronics", "Textbooks", "Clothing", "Kitchen", "Free"];
+const NAV = ["Home", "Notifications", "Messages"];
+
+const CATEGORIES = ["All items", "Furniture", "Electronics", "Textbooks", "Clothing", "Kitchen", "Free items", "Other"];
+
+const CAMPUSES = ["All campuses", "Dakota State University", "University of South Dakota", "South Dakota State University"];
+
+// Sample items shown until real listings are connected.
+const SAMPLE_ITEMS = [
+  { icon: "🪑", title: "Desk chair", price: "$25", condition: "Good", place: "Library steps" },
+  { icon: "📚", title: "Calculus textbook", price: "$40", condition: "Like new", place: "Student union" },
+  { icon: "🧊", title: "Mini fridge", price: "$60", condition: "Good", place: "Dorm lobby" },
+  { icon: "💡", title: "Desk lamp", price: "Free", condition: "Fair", place: "Dorm lobby" },
+  { icon: "🎧", title: "Wireless headphones", price: "$35", condition: "Like new", place: "Student union" },
+  { icon: "🧥", title: "Winter jacket", price: "$30", condition: "Good", place: "Library steps" },
+  { icon: "🍳", title: "Cookware set", price: "$20", condition: "Good", place: "Dorm lobby" },
+  { icon: "🖥️", title: "24-inch monitor", price: "$75", condition: "Like new", place: "Student union" },
+];
+
+const STEPS = [
+  { title: "List it", body: "Snap a few photos, set a price, and pick a campus pickup spot." },
+  { title: "Chat", body: "Buyers message you in real time, right from the listing." },
+  { title: "Get paid", body: "Secure online checkout, then hand the item off on campus." },
+];
 
 export default function Home() {
   return (
-    <main className="mx-auto min-h-screen max-w-7xl px-5 py-6 md:px-10">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-200 pb-5">
-        <Link href="/" className="text-2xl font-black tracking-tight text-emerald-950">DormCycle<span className="text-emerald-600">.</span></Link>
-        <form className="order-3 w-full md:order-none md:w-2/5">
-          <input aria-label="Search listings" placeholder="Search furniture, books, electronics..." className="w-full rounded-full border border-stone-300 bg-white px-5 py-3 outline-none focus:border-emerald-700" />
-        </form>
-        <nav className="flex items-center gap-4 text-sm font-medium">
-          <Link href="/messages">Messages</Link>
-          <Link href="/login">Log in</Link>
-          <Link href="/sell" className="rounded-full bg-emerald-800 px-5 py-2.5 text-white">Sell an item</Link>
-        </nav>
+    <>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
+          <a href="#" className="text-xl font-extrabold tracking-tight text-brand">
+            Dorm<span className="text-slate-900">Cycle</span>
+          </a>
+          <input
+            placeholder="Search items, descriptions, categories…"
+            aria-label="Search"
+            className="input order-last sm:order-none sm:max-w-md sm:flex-1"
+          />
+          <nav className="ml-auto flex flex-wrap items-center gap-1">
+            {NAV.map((n) => (
+              <a key={n} href="#" className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+                {n}
+              </a>
+            ))}
+            <Link href="/settings" className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+              Settings
+            </Link>
+            <a href="#" className="btn btn-primary">Sell</a>
+          </nav>
+        </div>
       </header>
 
-      <section className="py-14">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">The campus marketplace</p>
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-6xl">Give your dorm essentials a <span className="text-emerald-700">second life.</span></h1>
-        <p className="mt-5 max-w-2xl text-lg text-stone-600">Buy and sell the things students need, right in your university community.</p>
-        <div className="mt-7 flex flex-wrap gap-3">
-          <Link href="/products" className="rounded-full bg-emerald-800 px-6 py-3 font-semibold text-white">Explore listings</Link>
-          <Link href="/sell" className="rounded-full border border-stone-300 bg-white px-6 py-3 font-semibold">Start selling</Link>
-        </div>
-      </section>
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6">
+        <section className="rounded-2xl bg-gradient-to-r from-brand to-violet-500 p-8 text-white">
+          <h1 className="text-3xl font-extrabold sm:text-4xl">Buy &amp; sell in your dorm community</h1>
+          <p className="mt-2 max-w-xl text-white/90">
+            Furniture, textbooks, electronics and more from students on your campus. List what you no longer need and find
+            what you do.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a href="#items" className="btn bg-white text-brand hover:bg-slate-100">Browse items</a>
+            <a href="#how" className="btn border border-white/60 text-white hover:bg-white/10">How it works</a>
+          </div>
+        </section>
 
-      <section>
-        <div className="mb-5 flex items-end justify-between">
-          <div><p className="text-sm text-stone-500">Browse by</p><h2 className="text-2xl font-bold">Categories</h2></div>
-          <Link href="/products" className="text-sm font-semibold text-emerald-800">View all →</Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {CATEGORIES.map((c, i) => (
+            <span
+              key={c}
+              className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium ${
+                i === 0 ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-700"
+              }`}
+            >
+              {c}
+            </span>
+          ))}
+          <select aria-label="Campus" className="input ml-auto !w-auto">
+            {CAMPUSES.map((c) => <option key={c}>{c}</option>)}
+          </select>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
-          {categories.map((category) => <Link key={category} href={`/products?category=${category.toLowerCase()}`} className="rounded-2xl border border-stone-200 bg-white p-5 text-center font-semibold shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700">{category}</Link>)}
-        </div>
-      </section>
 
-      <section className="mt-14 rounded-3xl bg-emerald-950 p-8 text-white md:p-12">
-        <h2 className="text-3xl font-bold">Moving out? Moving in?</h2>
-        <p className="mt-3 max-w-xl text-emerald-100">List what you no longer need, find affordable dorm essentials, and message other students directly.</p>
-        <Link href="/sell" className="mt-6 inline-block rounded-full bg-white px-6 py-3 font-semibold text-emerald-950">List an item</Link>
-      </section>
-      <footer className="mt-16 border-t border-stone-200 py-7 text-sm text-stone-500">© {new Date().getFullYear()} DormCycle. Built for campus communities.</footer>
-    </main>
+        <section id="items" className="space-y-3">
+          <p className="text-sm text-slate-500">Sample listings — real student listings are coming soon.</p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {SAMPLE_ITEMS.map((item) => (
+              <div key={item.title} className="card overflow-hidden">
+                <div className="relative flex aspect-square items-center justify-center bg-slate-100 text-6xl">
+                  <span aria-hidden>{item.icon}</span>
+                  <span className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-lg text-slate-400 shadow">
+                    ♡
+                  </span>
+                </div>
+                <div className="space-y-1 p-3">
+                  <p className="truncate text-sm font-semibold">{item.title}</p>
+                  <p className="text-base font-bold text-brand">{item.price}</p>
+                  <p className="truncate text-xs text-slate-500">{item.condition} · {item.place}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="how" className="grid gap-4 sm:grid-cols-3">
+          {STEPS.map((s, i) => (
+            <div key={s.title} className="card p-5">
+              <p className="text-sm font-bold text-brand">Step {i + 1}</p>
+              <h2 className="mt-1 text-lg font-bold">{s.title}</h2>
+              <p className="mt-1 text-sm text-slate-600">{s.body}</p>
+            </div>
+          ))}
+        </section>
+      </main>
+
+      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+        © {new Date().getFullYear()} DormCycle · Meet in public campus spots
+      </footer>
+    </>
   );
 }
