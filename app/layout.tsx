@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DormCycle — buy & sell in your dorm community",
-  description: "A student marketplace for dorm furniture, textbooks, electronics and more.",
+  title: "DormCycle — Don't toss it. Keep it going.",
+  description: "A student-to-student marketplace for dorm essentials, useful finds, and convenient campus handoffs.",
+  icons: { icon: "/brand/logo.png" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

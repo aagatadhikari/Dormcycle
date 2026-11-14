@@ -1,35 +1,39 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-brand: #4f46e5;
-  --color-brand-dark: #4338ca;
+  --color-brand: #004165;
+  --color-brand-dark: #00304b;
+  --color-accent: #00a9e0;
+  --color-ink: #4d4f53;
+  --color-surface: #f4f4f4;
+  --color-mist: #e9f7fc;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #ffffff;
+  color: #1f2937;
   font-family: var(--font-sans);
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50;
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
     @apply bg-brand text-white hover:bg-brand-dark;
   }
-  .btn-outline {
-    @apply border border-slate-300 bg-white text-slate-800 hover:bg-slate-50;
+  .btn-accent {
+    @apply bg-accent text-white hover:brightness-95;
   }
-  .btn-danger {
-    @apply border border-red-300 bg-white text-red-700 hover:bg-red-50;
+  .btn-outline {
+    @apply border border-slate-300 bg-white text-brand hover:bg-surface;
   }
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20;
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/25;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-slate-700;
+    @apply mb-1 block text-sm font-medium text-ink;
   }
   .card {
     @apply rounded-xl border border-slate-200 bg-white shadow-sm;
