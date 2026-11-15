@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { supabase, imageUrl } from "@/lib/supabase";
-
-const CART_KEY = "dormcycle-cart";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 import { CAMPUSES, CATALOG, CATEGORIES, CONDITIONS, label, price, type Product } from "@/lib/data";
-import { AuthModal, CheckoutModal, DonateModal, InfoModal, OrdersModal, ProductModal, SellModal } from "./Modals";
-import CartDrawer, { type CartItem } from "./CartDrawer";
+import { CART_KEY, firstImage, type CartItem } from "@/lib/cart";
+import { AuthModal, CheckoutModal, DonateModal, InfoModal, OrdersModal, SellModal } from "./Modals";
+import CartDrawer from "./CartDrawer";
 import ChatWidget from "./ChatWidget";
 import NotificationBell from "./NotificationBell";
 
@@ -30,27 +30,39 @@ function HeroShot({ img, alt, tag, h }: { img: string; alt: string; tag: string;
   );
 }
 
-function Card({ p, onOpen }: { p: Product; onOpen: () => void }) {
-  const first = p.example
-    ? p.example.image
-    : [...(p.product_images ?? [])].sort((a, b) => a.sort_order - b.sort_order).map((i) => imageUrl(i.storage_path))[0];
+function Card({ p }: { p: Product }) {
+  const first = firstImage(p);
+  const free = p.price_cents === 0;
   return (
-    <button onClick={onOpen} className="card group overflow-hidden text-left transition hover:shadow-md">
-      <div className="relative aspect-square bg-surface">
+    <Link
+      href={`/listing/${p.id}`}
+      className="card group overflow-hidden text-left transition duration-200 hover:-translate-y-1 hover:border-accent/40 hover:shadow-lg"
+    >
+      <div className="relative aspect-square overflow-hidden bg-surface">
         {first ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={first} alt={p.title} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+          <img src={first} alt={p.title} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.07]" />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-ink">No photo</div>
+          <div className="flex h-full items-center justify-center text-sm text-ink">No photo yet</div>
         )}
-        {p.status === "sold" && <div className="absolute inset-0 flex items-center justify-center bg-brand/60 text-lg font-bold text-white">SOLD</div>}
+        {free && !(p.status === "sold") && (
+          <span className="absolute left-2.5 top-2.5 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm">
+            Free
+          </span>
+        )}
+        {p.status === "sold" && (
+          <div className="absolute inset-0 flex items-center justify-center bg-brand/60 text-lg font-bold tracking-wide text-white">SOLD</div>
+        )}
       </div>
-      <div className="space-y-0.5 p-3">
-        <p className="text-base font-bold text-brand">{price(p.price_cents)}</p>
+      <div className="space-y-1 p-3.5">
+        <p className="text-base font-extrabold text-brand">{price(p.price_cents)}</p>
         <p className="truncate text-sm font-medium">{p.title}</p>
-        <p className="truncate text-xs text-ink">{label(CONDITIONS, p.condition)} · {p.pickup_location || p.campus}</p>
+        <p className="flex items-center gap-1.5 truncate text-xs text-ink">
+          <span className="rounded-full bg-surface px-2 py-0.5 font-semibold">{label(CONDITIONS, p.condition)}</span>
+          <span className="truncate">{p.pickup_location || p.campus}</span>
+        </p>
       </div>
-    </button>
+    </Link>
   );
 }
 
@@ -71,9 +83,9 @@ export default function Marketplace() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartNote, setCartNote] = useState("");
+  const [pendingCheckout, setPendingCheckout] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
-  const [selected, setSelected] = useState<Product | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
 
@@ -132,6 +144,50 @@ export default function Marketplace() {
     };
   }, []);
 
+  // The listing pages hand work back here through the URL: a chat to open, a checkout to finish.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      const params = new URLSearchParams(window.location.search);
+      if (params.toString() === "") return;
+      const chat = params.get("chat");
+      const category = params.get("category");
+      if (chat) {
+        setChatId(chat);
+        setChatOpen(true);
+      }
+      if (category) setFilters((f) => ({ ...f, category }));
+      if (params.get("login")) setAuthOpen(true);
+      if (params.get("checkout")) setPendingCheckout(true);
+      window.history.replaceState({}, "", "/");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pendingCheckout) return;
+    let cancelled = false;
+    (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!userId) return setAuthOpen(true);
+      setPendingCheckout(false);
+      if (cart.length === 0) return;
+      if (cart.some((i) => i.seller_id === userId)) {
+        setCartNote("One of these is your own listing. Remove it to check out.");
+        return setCartOpen(true);
+      }
+      setCheckoutOpen(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingCheckout, userId, cart]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(CART_KEY, JSON.stringify(cart));
@@ -139,20 +195,6 @@ export default function Marketplace() {
       // Ignore: the cart still works for this page view.
     }
   }, [cart]);
-
-  function addToCart(p: Product) {
-    const first = p.example
-      ? p.example.image
-      : [...(p.product_images ?? [])].sort((a, b) => a.sort_order - b.sort_order).map((i) => imageUrl(i.storage_path))[0];
-    setCart((prev) =>
-      prev.some((i) => i.id === p.id)
-        ? prev
-        : [...prev, { id: p.id, title: p.title, price_cents: p.price_cents, seller_id: p.seller_id, image: first ?? null, example: !!p.example }],
-    );
-    setCartNote("");
-    setSelected(null);
-    setCartOpen(true);
-  }
 
   // Checkout opens the order form; the cart only needs to be valid first.
   function startCheckout() {
@@ -258,19 +300,6 @@ export default function Marketplace() {
     return false;
   }
 
-  async function openChat(p: Product, firstMessage?: string): Promise<string | void> {
-    if (!requireLogin() || !userId) return;
-    const { data: convId, error } = await supabase.rpc("start_conversation", { p_product_id: p.id });
-    if (error || !convId) return error?.message ?? "Could not start the chat.";
-    if (firstMessage) {
-      const { error: msgErr } = await supabase.from("messages").insert({ conversation_id: convId, sender_id: userId, message_text: firstMessage });
-      if (msgErr) return msgErr.message;
-    }
-    setSelected(null);
-    setChatId(convId as string);
-    setChatOpen(true);
-  }
-
   function openSell(mode: "sell" | "donate") {
     if (requireLogin()) setSellMode(mode);
   }
@@ -292,7 +321,7 @@ export default function Marketplace() {
   }
 
   const pill = (on: boolean) =>
-    `whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition ${on ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-ink hover:bg-mist"}`;
+    `whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${on ? "border-brand bg-brand text-white shadow-sm" : "border-slate-200 bg-white text-ink hover:border-accent/50 hover:bg-mist hover:text-brand"}`;
   const setF = (k: keyof Filters, v: string) => setFilters((f) => ({ ...f, [k]: v }));
 
   return (
@@ -486,21 +515,40 @@ export default function Marketplace() {
               </div>
             </section>
 
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => setF("category", "")} className={pill(!filters.category)}>All items</button>
-              {CATEGORIES.map(([k, v]) => <button key={k} onClick={() => setF("category", k)} className={pill(filters.category === k)}>{v}</button>)}
-              <button onClick={() => setF("category", "free")} className={pill(filters.category === "free")}>Free items</button>
+            <div className="sticky top-16 z-20 -mx-4 overflow-x-auto bg-white/90 px-4 py-3 backdrop-blur">
+              <div className="flex gap-2">
+                <button onClick={() => setF("category", "")} className={pill(!filters.category)}>All items</button>
+                {CATEGORIES.map(([k, v]) => <button key={k} onClick={() => setF("category", k)} className={pill(filters.category === k)}>{v}</button>)}
+                <button onClick={() => setF("category", "free")} className={pill(filters.category === "free")}>Free items</button>
+              </div>
             </div>
 
-            <section id="items" className="scroll-mt-24 space-y-3">
-              <h2 className="text-lg font-bold text-brand">Listings</h2>
+            <section id="items" className="scroll-mt-32 space-y-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="flex items-center gap-3 text-lg font-extrabold text-brand">
+                  <span className="h-5 w-1 rounded-full bg-accent" aria-hidden />
+                  Listings
+                </h2>
+                {loaded && (
+                  <p className="text-sm text-ink">
+                    {forSale.length} {forSale.length === 1 ? "item" : "items"}
+                    {filters.category ? ` in ${filters.category === "free" ? "free items" : label(CATEGORIES, filters.category)}` : ""}
+                  </p>
+                )}
+              </div>
               {forSale.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  {forSale.map((p) => <Card key={p.id} p={p} onOpen={() => setSelected(p)} />)}
+                  {forSale.map((p) => <Card key={p.id} p={p} />)}
                 </div>
               ) : (
-                <div className="card p-6 text-center text-sm text-ink">
-                  {!loaded ? "Loading listings…" : "No listings match your search yet."}
+                <div className="card flex flex-col items-center gap-3 p-10 text-center text-sm text-ink">
+                  <Image src="/brand/logo.png" alt="" width={34} height={34} className="opacity-40" />
+                  {!loaded ? "Loading listings…" : "Nothing matches that search yet. Try another category or clear the filters."}
+                  {loaded && (
+                    <button onClick={() => { setQ(""); setFilters(NO_FILTERS); }} className="btn btn-outline">
+                      Clear filters
+                    </button>
+                  )}
                 </div>
               )}
             </section>
@@ -527,7 +575,7 @@ export default function Marketplace() {
               <div className="card p-6 text-center text-sm text-ink">You haven&apos;t listed anything yet.</div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                {mine.map((p) => <Card key={p.id} p={p} onOpen={() => setSelected(p)} />)}
+                {mine.map((p) => <Card key={p.id} p={p} />)}
               </div>
             )}
           </section>
@@ -626,31 +674,6 @@ export default function Marketplace() {
         />
       )}
       {ordersOpen && userId && <OrdersModal userId={userId} onClose={() => setOrdersOpen(false)} />}
-      {selected && (
-        <ProductModal
-          key={selected.id}
-          product={selected}
-          userId={userId}
-          onClose={() => setSelected(null)}
-          onMessage={(p) =>
-            openChat(
-              p,
-              p.price_cents === 0
-                ? `Hi! Is "${p.title}" still available? I'd love to take it off your hands.`
-                : `Hi! Is "${p.title}" still available?`,
-            )
-          }
-          onChanged={() => { setSelected(null); load(); }}
-          onOffer={(p, cents) =>
-            openChat(
-              p,
-              `Hi! Would you take ${price(cents)} for "${p.title}"? It's listed at ${price(p.price_cents)}.`,
-            )
-          }
-          onAddToCart={addToCart}
-          inCart={cart.some((i) => i.id === selected.id)}
-        />
-      )}
       <CartDrawer
         items={cart}
         open={cartOpen}

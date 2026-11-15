@@ -1,15 +1,9 @@
 "use client";
 
 import { price } from "@/lib/data";
+import { FEE_RATE, feeOn, type CartItem } from "@/lib/cart";
 
-export type CartItem = {
-  id: string;
-  title: string;
-  price_cents: number;
-  seller_id: string;
-  image: string | null;
-  example?: boolean;
-};
+export type { CartItem };
 
 export default function CartDrawer({
   items,
@@ -89,10 +83,24 @@ export default function CartDrawer({
 
             <div className="space-y-3 border-t border-slate-200 p-4">
               {note && <p className="rounded-md bg-mist p-2 text-sm text-brand">{note}</p>}
-              <div className="flex items-center justify-between text-base font-bold text-brand">
-                <span>Total</span>
-                <span>{price(total)}</span>
-              </div>
+              <dl className="space-y-1 text-sm">
+                <div className="flex justify-between text-ink">
+                  <dt>Subtotal</dt>
+                  <dd>{price(total)}</dd>
+                </div>
+                <div className="flex justify-between text-ink">
+                  <dt>Service fee ({Math.round(FEE_RATE * 100)}%)</dt>
+                  <dd>{price(feeOn(total))}</dd>
+                </div>
+                <div className="flex justify-between text-ink">
+                  <dt>Campus pickup</dt>
+                  <dd>Free</dd>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-1.5 text-base font-extrabold text-brand">
+                  <dt>Total</dt>
+                  <dd>{price(total + feeOn(total))}</dd>
+                </div>
+              </dl>
               <button disabled={busy || items.length === 0} onClick={onCheckout} className="btn btn-primary w-full">
                 {busy ? "Working…" : "Checkout"}
               </button>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase, imageUrl } from "@/lib/supabase";
-import { CAMPUSES, CATEGORIES, CONDITIONS, label, price, type Product } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
+import { CAMPUSES, CATEGORIES, CONDITIONS, price } from "@/lib/data";
+import { FEE_RATE, feeOn } from "@/lib/cart";
 
 const MAX_IMAGES = 8;
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -200,238 +201,8 @@ export function SellModal({ userId, onClose, onDone }: { userId: string; onClose
   );
 }
 
-const joinedLabel = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "";
-
 const listedLabel = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-export function ProductModal({
-  product,
-  userId,
-  onClose,
-  onMessage,
-  onOffer,
-  onChanged,
-  onAddToCart,
-  inCart,
-}: {
-  product: Product;
-  userId: string | null;
-  onClose: () => void;
-  onMessage: (p: Product) => Promise<string | void>;
-  onOffer: (p: Product, cents: number) => Promise<string | void>;
-  onChanged: () => void;
-  onAddToCart: (p: Product) => void;
-  inCart: boolean;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [shown, setShown] = useState(0);
-  const [seller, setSeller] = useState<{ full_name: string; campus: string | null; created_at: string } | null>(null);
-  const [offerOpen, setOfferOpen] = useState(false);
-  const [offer, setOffer] = useState("");
-
-  const images = product.example
-    ? [product.example.image]
-    : [...(product.product_images ?? [])].sort((a, b) => a.sort_order - b.sort_order).map((i) => imageUrl(i.storage_path));
-  const mine = !!userId && userId === product.seller_id;
-  const available = product.status === "active";
-
-  // Who is selling it, for the bio line under the price.
-  useEffect(() => {
-    if (!product.seller_id) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name,campus,created_at")
-        .eq("id", product.seller_id)
-        .maybeSingle();
-      if (!cancelled && data) setSeller(data as { full_name: string; campus: string | null; created_at: string });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [product.seller_id]);
-
-  async function run(fn: () => Promise<string | void>) {
-    setBusy(true);
-    setError("");
-    const err = await fn();
-    setBusy(false);
-    if (err) setError(err);
-  }
-
-  async function setStatus(status: "active" | "sold") {
-    const { error: err } = await supabase.from("products").update({ status }).eq("id", product.id);
-    if (err) return err.message;
-    onChanged();
-  }
-
-  async function remove() {
-    if (!window.confirm("Delete this listing? This can't be undone.")) return;
-    const paths = (product.product_images ?? []).map((i) => i.storage_path);
-    const { error: err } = await supabase.from("products").delete().eq("id", product.id);
-    if (err) return err.message;
-    if (paths.length) await supabase.storage.from("product-images").remove(paths);
-    onChanged();
-  }
-
-  function sendOffer(e: React.FormEvent) {
-    e.preventDefault();
-    const cents = Math.round(parseFloat(offer) * 100);
-    if (!Number.isFinite(cents) || cents < 50) return setError("Enter an offer of at least $0.50.");
-    if (cents > 1_000_000) return setError("That offer is too high.");
-    run(() => onOffer(product, cents));
-  }
-
-  const sellerName = seller?.full_name || (product.example ? "DormCycle" : "A student");
-  const initial = sellerName.trim().charAt(0).toUpperCase() || "D";
-
-  return (
-    <Modal title={product.title} onClose={onClose}>
-      <div className="space-y-4">
-        <div className="relative aspect-video overflow-hidden rounded-lg bg-surface">
-          {images[shown] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={images[shown]} alt={product.title} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-ink">No photo</div>
-          )}
-          {!available && (
-            <div className="absolute inset-0 flex items-center justify-center bg-brand/60 text-2xl font-bold text-white">SOLD</div>
-          )}
-        </div>
-        {images.length > 1 && (
-          <div className="flex gap-2">
-            {images.map((src, i) => (
-              <button
-                key={src}
-                onClick={() => setShown(i)}
-                className={`h-12 w-12 overflow-hidden rounded-md border-2 ${i === shown ? "border-accent" : "border-transparent"}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="h-full w-full object-cover" />
-              </button>
-            ))}
-          </div>
-        )}
-
-        <p className="text-3xl font-extrabold text-brand">{price(product.price_cents)}</p>
-
-        <div className="flex items-center gap-3 rounded-lg bg-surface px-3 py-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-sm font-bold text-white">
-            {initial}
-          </span>
-          <div className="min-w-0 text-sm">
-            <p className="truncate font-semibold text-brand">{sellerName}{mine ? " (you)" : ""}</p>
-            <p className="truncate text-xs text-ink">
-              {seller?.created_at ? `On DormCycle since ${joinedLabel(seller.created_at)}` : "Student seller"}
-              {seller?.campus ? ` · ${seller.campus}` : ""}
-            </p>
-          </div>
-        </div>
-
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-ink">Category</dt>
-            <dd className="font-medium">{label(CATEGORIES, product.category)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-ink">Condition</dt>
-            <dd className="font-medium">{label(CONDITIONS, product.condition)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-ink">Campus</dt>
-            <dd className="font-medium">{product.campus}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-ink">Pickup</dt>
-            <dd className="font-medium">{product.pickup_location || "Arrange in chat"}</dd>
-          </div>
-        </dl>
-
-        <div>
-          <h3 className="font-bold text-brand">About this item</h3>
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
-            {product.description || "The seller hasn't added a description."}
-          </p>
-          <p className="mt-2 text-xs text-ink">Listed {listedLabel(product.created_at)}</p>
-        </div>
-
-        {error && <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
-
-        {product.example ? (
-          <div className="space-y-2">
-            <button onClick={() => onAddToCart(product)} disabled={inCart} className="btn btn-primary w-full">
-              {inCart ? "In your cart" : "Add to cart"}
-            </button>
-            <p className="text-xs text-ink">
-              Messaging opens once the seller signs in. You can still add this to your cart and check out.
-            </p>
-          </div>
-        ) : mine ? (
-          <div className="flex flex-wrap gap-2">
-            {available ? (
-              <button disabled={busy} onClick={() => run(() => setStatus("sold"))} className="btn btn-primary">Mark as sold</button>
-            ) : (
-              <button disabled={busy} onClick={() => run(() => setStatus("active"))} className="btn btn-outline">Relist</button>
-            )}
-            <button disabled={busy} onClick={() => run(remove)} className="btn border border-red-300 bg-white text-red-700 hover:bg-red-50">
-              Delete
-            </button>
-          </div>
-        ) : available ? (
-          <div className="space-y-2">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button onClick={() => onAddToCart(product)} disabled={inCart} className="btn btn-outline">
-                {inCart ? "In your cart" : "Add to cart"}
-              </button>
-              <button disabled={busy} onClick={() => run(() => onMessage(product))} className="btn btn-primary">
-                Message seller
-              </button>
-            </div>
-
-            {product.price_cents > 0 &&
-              (offerOpen ? (
-                <form onSubmit={sendOffer} className="space-y-2 rounded-lg border border-slate-200 p-3">
-                  <label className="label" htmlFor="offer">Your offer (USD)</label>
-                  <div className="flex gap-2">
-                    <input
-                      id="offer"
-                      type="number"
-                      step="0.01"
-                      min="0.5"
-                      value={offer}
-                      onChange={(e) => setOffer(e.target.value)}
-                      className="input"
-                      placeholder={(product.price_cents / 100).toFixed(2)}
-                      autoFocus
-                    />
-                    <button disabled={busy} className="btn btn-primary shrink-0">Send offer</button>
-                  </div>
-                  <p className="text-xs text-ink">
-                    Listed at {price(product.price_cents)}. Your offer goes to the seller as a message — they can accept,
-                    counter, or decline in the chat.
-                  </p>
-                </form>
-              ) : (
-                <button onClick={() => setOfferOpen(true)} className="btn btn-outline w-full">Make an offer</button>
-              ))}
-
-            <p className="text-xs text-ink">
-              Messaging opens a chat with the seller to set up a campus handoff. Agree on payment between yourselves when
-              you meet.
-            </p>
-          </div>
-        ) : (
-          <p className="rounded-md bg-surface p-3 text-center text-sm text-ink">This item is no longer available.</p>
-        )}
-      </div>
-    </Modal>
-  );
-}
 
 const INFO: Record<string, { title: string; body: string[] }> = {
   about: {
@@ -614,6 +385,8 @@ export function CheckoutModal({
   const [lines] = useState(items);
 
   const total = lines.reduce((sum, i) => sum + i.price_cents, 0);
+  const fee = feeOn(total);
+  const grandTotal = total + fee;
   const sellers = new Set(lines.map((i) => i.seller_id)).size;
   const digits = card.number.replace(/\D/g, "");
   const last4 = digits.slice(-4);
@@ -687,12 +460,12 @@ export function CheckoutModal({
                 <span>Free</span>
               </div>
               <div className="flex justify-between text-ink">
-                <span>DormCycle fee</span>
-                <span>$0.00</span>
+                <span>Service fee ({Math.round(FEE_RATE * 100)}%)</span>
+                <span>{price(fee)}</span>
               </div>
               <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-extrabold text-brand">
                 <span>Total</span>
-                <span>{price(total)}</span>
+                <span>{price(grandTotal)}</span>
               </div>
             </div>
 
@@ -704,7 +477,7 @@ export function CheckoutModal({
                   </>
                 ) : (
                   <>
-                    Paying in person — <b className="text-brand">bring {price(total)}</b>
+                    Paying in person — <b className="text-brand">bring {price(grandTotal)}</b>
                   </>
                 )}
               </span>
@@ -755,10 +528,24 @@ export function CheckoutModal({
               <span className="shrink-0 font-semibold">{price(i.price_cents)}</span>
             </div>
           ))}
-          <div className="flex items-center justify-between bg-surface px-3 py-2 font-bold text-brand">
-            <span>Total</span>
-            <span>{price(total)}</span>
-          </div>
+          <dl className="space-y-1 bg-surface px-3 py-2.5 text-sm">
+            <div className="flex justify-between text-ink">
+              <dt>Subtotal</dt>
+              <dd>{price(total)}</dd>
+            </div>
+            <div className="flex justify-between text-ink">
+              <dt>Service fee ({Math.round(FEE_RATE * 100)}%)</dt>
+              <dd>{price(fee)}</dd>
+            </div>
+            <div className="flex justify-between text-ink">
+              <dt>Campus pickup</dt>
+              <dd>Free</dd>
+            </div>
+            <div className="flex justify-between border-t border-slate-300 pt-1.5 text-base font-extrabold text-brand">
+              <dt>Total due</dt>
+              <dd>{price(grandTotal)}</dd>
+            </div>
+          </dl>
         </div>
 
         <fieldset className="space-y-3 rounded-lg border border-slate-200 p-3">
@@ -884,7 +671,7 @@ export function CheckoutModal({
 
         {error && <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
         <button disabled={busy} className="btn btn-primary w-full">
-          {busy ? "Placing order…" : `Place order · ${price(total)}`}
+          {busy ? "Placing order…" : `Place order · ${price(grandTotal)}`}
         </button>
       </form>
     </Modal>

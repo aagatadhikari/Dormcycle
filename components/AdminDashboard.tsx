@@ -171,10 +171,11 @@ export default function AdminDashboard() {
       if (profile?.role !== "admin") return setState("denied");
       setState("ok");
 
-      const [products, orderRows, donationRows] = await Promise.all([
+      const [products, orderRows, donationRows, reportRows] = await Promise.all([
         supabase.from("products").select("*, product_images(storage_path, sort_order)"),
         supabase.from("orders").select("id, amount_cents, status, created_at"),
         supabase.from("donations").select("id"),
+        supabase.from("listing_reports").select("id, listing_title, reason, details, status, created_at"),
       ]);
 
       if (products.data) setLiveProducts(products.data as Product[]);
@@ -192,6 +193,20 @@ export default function AdminDashboard() {
         );
       }
       if (donationRows.data) setDonations(donationRows.data.length);
+      if (reportRows.data?.length) {
+        const live = (reportRows.data as {
+          id: string; listing_title: string; reason: string; status: string; created_at: string;
+        }[]).map((r) => ({
+          id: `R-${r.id.slice(0, 4).toUpperCase()}`,
+          target: r.listing_title,
+          kind: "listing" as const,
+          reason: r.reason,
+          reporter: "A member",
+          opened: r.created_at,
+          status: (r.status === "resolved" ? "resolved" : r.status === "reviewing" ? "reviewing" : "open") as ReportRow["status"],
+        }));
+        setReports((prev) => [...live, ...prev]);
+      }
     })();
   }, []);
 
