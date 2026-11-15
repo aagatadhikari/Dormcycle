@@ -4,15 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { supabase, imageUrl } from "@/lib/supabase";
 import { CAMPUSES, CATEGORIES, CONDITIONS, EXAMPLES, label, price, type Product } from "@/lib/data";
-import { AuthModal, ProductModal, SellModal } from "./Modals";
+import { AuthModal, InfoModal, ProductModal, SellModal } from "./Modals";
 import ChatWidget from "./ChatWidget";
 import NotificationBell from "./NotificationBell";
-
-const HOW_IT_WORKS = [
-  { title: "List it", body: "Snap a few photos, set a price, and pick a campus pickup spot. Free items welcome." },
-  { title: "Chat", body: "Buyers message you in the pop-up chat, so you can agree on a time without swapping numbers." },
-  { title: "Hand it off", body: "Meet somewhere public on campus, hand it over, and mark the listing sold." },
-];
 
 type Filters = { category: string; campus: string; condition: string; maxPrice: string; sort: string };
 const NO_FILTERS: Filters = { category: "", campus: "", condition: "", maxPrice: "", sort: "newest" };
@@ -52,7 +46,8 @@ export default function Marketplace() {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const [sellOpen, setSellOpen] = useState(false);
+  const [sellMode, setSellMode] = useState<"sell" | "donate" | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [selected, setSelected] = useState<Product | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
@@ -130,6 +125,22 @@ export default function Marketplace() {
     setSelected(null);
     setChatId(convId as string);
     setChatOpen(true);
+  }
+
+  function openSell(mode: "sell" | "donate") {
+    if (requireLogin()) setSellMode(mode);
+  }
+
+  // Footer shortcuts jump back to the grid with a filter applied.
+  function browse(category: string) {
+    setTab("buy");
+    setFilters((f) => ({ ...f, category }));
+    document.getElementById("items")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function browseCampus(campus: string) {
+    setTab("buy");
+    setFilters((f) => ({ ...f, campus }));
   }
 
   const pill = (on: boolean) =>
@@ -254,9 +265,9 @@ export default function Marketplace() {
                 <a href="#items" className="btn rounded-xl bg-white px-6 py-3 text-base text-brand hover:bg-mist">
                   Explore campus finds <span aria-hidden>→</span>
                 </a>
-                <a href="#how" className="text-sm font-semibold text-white/90 hover:text-white">
-                  How DormCycle works <span aria-hidden>↓</span>
-                </a>
+                <button onClick={() => setInfo("how")} className="text-sm font-semibold text-white/90 hover:text-white">
+                  How DormCycle works <span aria-hidden>→</span>
+                </button>
               </div>
 
               <p className="mt-7 flex items-center gap-2 text-xs text-white/55">
@@ -324,20 +335,6 @@ export default function Marketplace() {
               </section>
             )}
 
-            <section id="how" className="scroll-mt-24 space-y-3">
-              <h2 className="text-lg font-bold text-brand">How DormCycle works</h2>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {HOW_IT_WORKS.map((step, i) => (
-                  <div key={step.title} className="card p-5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-mist text-sm font-bold text-brand">
-                      {i + 1}
-                    </span>
-                    <h3 className="mt-3 font-bold text-brand">{step.title}</h3>
-                    <p className="mt-1 text-sm text-ink">{step.body}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
           </>
         ) : (
           <section className="space-y-4">
@@ -349,7 +346,7 @@ export default function Marketplace() {
                 <h1 className="text-2xl font-extrabold text-brand">Sell on DormCycle</h1>
                 <p className="text-ink">Snap a photo, set a price, and meet your buyer on campus.</p>
               </div>
-              <button onClick={() => { if (requireLogin()) setSellOpen(true); }} className="btn btn-primary">+ List an item</button>
+              <button onClick={() => { openSell("sell"); }} className="btn btn-primary">+ List an item</button>
             </div>
             <h2 className="text-lg font-bold text-brand">Your listings</h2>
             {!userId ? (
@@ -367,15 +364,88 @@ export default function Marketplace() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200 bg-surface py-6 text-center text-xs text-ink">
-        © {new Date().getFullYear()} DormCycle · Meet in public campus spots · Example photos from{" "}
-        <a href="https://unsplash.com" className="underline">Unsplash</a>
+      <footer id="footer" className="mt-12 bg-surface">
+        <div className="mx-auto max-w-6xl px-4 py-12">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1.7fr]">
+            <div>
+              <h2 className="text-lg font-bold text-brand">DormCycle</h2>
+              <ul className="mt-6 space-y-5 text-ink">
+                <li><button onClick={() => setInfo("about")} className="hover:text-brand">About us</button></li>
+                <li><button onClick={() => setInfo("how")} className="hover:text-brand">How it works</button></li>
+                <li><button onClick={() => setInfo("safety")} className="hover:text-brand">Campus safety</button></li>
+              </ul>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-bold text-brand">Sell</h2>
+              <ul className="mt-6 space-y-5 text-ink">
+                <li><button onClick={() => openSell("sell")} className="hover:text-brand">Sell an item</button></li>
+                <li><button onClick={() => openSell("donate")} className="hover:text-brand">Donate an item</button></li>
+                <li><button onClick={() => setInfo("selling")} className="hover:text-brand">Selling tips</button></li>
+              </ul>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-bold text-brand">Browse</h2>
+              <ul className="mt-6 space-y-5 text-ink">
+                <li><button onClick={() => browse("")} className="hover:text-brand">All items</button></li>
+                <li><button onClick={() => browse("free")} className="hover:text-brand">Free items</button></li>
+                <li><button onClick={() => browse("furniture")} className="hover:text-brand">Furniture</button></li>
+                <li><button onClick={() => browse("textbooks")} className="hover:text-brand">Textbooks</button></li>
+              </ul>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-bold text-brand">Give something back</h2>
+              <div className="mt-6 flex items-start gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-mist">
+                  <Image src="/brand/logo.png" alt="" width={52} height={52} />
+                </div>
+                <div>
+                  <p className="text-ink">
+                    Leaving something behind at move-out? Post a photo and a short description, and pass it on to the
+                    next student for free.
+                  </p>
+                  <button onClick={() => openSell("donate")} className="btn btn-primary mt-4">Donate now</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-200/70">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 text-sm text-ink">
+            <label className="flex items-center gap-2">
+              <span className="sr-only">Campus</span>
+              <select
+                value={filters.campus}
+                onChange={(e) => browseCampus(e.target.value)}
+                className="rounded-md border border-slate-300 bg-white px-2 py-1"
+              >
+                <option value="">All campuses</option>
+                {CAMPUSES.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </label>
+            <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <button onClick={() => setInfo("safety")} className="hover:text-brand">Campus safety</button>
+              <button onClick={() => setInfo("how")} className="hover:text-brand">How it works</button>
+              <a href="https://unsplash.com" className="hover:text-brand">Example photos</a>
+              <span>© {new Date().getFullYear()} DormCycle</span>
+            </nav>
+          </div>
+        </div>
       </footer>
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
-      {sellOpen && userId && (
-        <SellModal userId={userId} onClose={() => setSellOpen(false)} onDone={() => { setSellOpen(false); setTab("sell"); load(); }} />
+      {sellMode && userId && (
+        <SellModal
+          userId={userId}
+          donate={sellMode === "donate"}
+          onClose={() => setSellMode(null)}
+          onDone={() => { setSellMode(null); setTab("sell"); load(); }}
+        />
       )}
+      {info && <InfoModal topic={info} onClose={() => setInfo(null)} />}
       {selected && (
         <ProductModal
           key={selected.id}

@@ -85,7 +85,17 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function SellModal({ userId, onClose, onDone }: { userId: string; onClose: () => void; onDone: () => void }) {
+export function SellModal({
+  userId,
+  donate = false,
+  onClose,
+  onDone,
+}: {
+  userId: string;
+  donate?: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -103,7 +113,7 @@ export function SellModal({ userId, onClose, onDone }: { userId: string; onClose
     e.preventDefault();
     setError("");
     const fd = new FormData(e.currentTarget);
-    const cents = Math.round(parseFloat(String(fd.get("price"))) * 100);
+    const cents = donate ? 0 : Math.round(parseFloat(String(fd.get("price"))) * 100);
     if (!Number.isFinite(cents) || cents < 0) return setError("Enter a valid price.");
     if (cents !== 0 && cents < 50) return setError("Price must be $0 (free) or at least $0.50.");
     if (cents > 1_000_000) return setError("Maximum price is $10,000.");
@@ -148,8 +158,14 @@ export function SellModal({ userId, onClose, onDone }: { userId: string; onClose
   }
 
   return (
-    <Modal title="Sell an item" onClose={onClose}>
+    <Modal title={donate ? "Donate an item" : "Sell an item"} onClose={onClose}>
       {error && <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      {donate && (
+        <p className="mb-3 rounded-md bg-mist p-3 text-sm text-brand">
+          Donations are posted free. Add a photo and a short description, and it shows up under Free items for anyone on
+          campus to claim.
+        </p>
+      )}
       <form onSubmit={submit} className="space-y-3">
         <div>
           <label className="label" htmlFor="photos">Photos (up to {MAX_IMAGES})</label>
@@ -157,18 +173,20 @@ export function SellModal({ userId, onClose, onDone }: { userId: string; onClose
           {files.length > 0 && <p className="mt-1 text-xs text-ink">{files.length} photo{files.length > 1 ? "s" : ""} selected</p>}
         </div>
         <div>
-          <label className="label" htmlFor="title">What are you selling?</label>
+          <label className="label" htmlFor="title">{donate ? "What are you donating?" : "What are you selling?"}</label>
           <input id="title" name="title" required maxLength={120} className="input" />
         </div>
         <div>
           <label className="label" htmlFor="description">Description</label>
           <textarea id="description" name="description" required maxLength={5000} rows={3} className="input" />
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className="label" htmlFor="price">Price (USD)</label>
-            <input id="price" name="price" type="number" step="0.01" min="0" required placeholder="0 = free" className="input" />
-          </div>
+        <div className={`grid gap-3 ${donate ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+          {!donate && (
+            <div>
+              <label className="label" htmlFor="price">Price (USD)</label>
+              <input id="price" name="price" type="number" step="0.01" min="0" required placeholder="0 = free" className="input" />
+            </div>
+          )}
           <div>
             <label className="label" htmlFor="category">Category</label>
             <select id="category" name="category" className="input">
@@ -194,7 +212,9 @@ export function SellModal({ userId, onClose, onDone }: { userId: string; onClose
             <input id="pickup_location" name="pickup_location" maxLength={120} placeholder="e.g. Library steps" className="input" />
           </div>
         </div>
-        <button disabled={busy} className="btn btn-primary w-full">{busy ? "Publishing…" : "Publish listing"}</button>
+        <button disabled={busy} className="btn btn-primary w-full">
+          {busy ? "Posting…" : donate ? "Post donation" : "Publish listing"}
+        </button>
       </form>
     </Modal>
   );
@@ -300,6 +320,57 @@ export function ProductModal({
         ) : (
           <p className="rounded-md bg-surface p-3 text-center text-sm text-ink">This item is no longer available.</p>
         )}
+      </div>
+    </Modal>
+  );
+}
+
+const INFO: Record<string, { title: string; body: string[] }> = {
+  about: {
+    title: "About DormCycle",
+    body: [
+      "DormCycle is a student-to-student marketplace for dorm essentials, useful finds, and easy campus handoffs.",
+      "Every move-out leaves behind fridges, lamps, chairs and textbooks that still have years of use in them. DormCycle keeps them in circulation on campus instead of in a dumpster.",
+      "Don't toss it. Keep it going.",
+    ],
+  },
+  how: {
+    title: "How DormCycle works",
+    body: [
+      "1. List it — snap a few photos, set a price, and pick a campus pickup spot. Free items are welcome.",
+      "2. Chat — buyers message you in the pop-up chat, so you can agree on a time without swapping phone numbers.",
+      "3. Hand it off — meet somewhere public on campus, hand it over, and mark the listing sold.",
+    ],
+  },
+  safety: {
+    title: "Campus safety",
+    body: [
+      "Meet in a public, well-lit spot on campus — a lobby, the library steps, the student union. Never a dorm room.",
+      "Bring a friend if you can, and tell someone where you're going.",
+      "Keep the conversation in DormCycle chat until you've agreed on a time and place.",
+      "Inspect the item before money changes hands, and trust your instincts: if something feels off, walk away and report the listing.",
+    ],
+  },
+  selling: {
+    title: "Selling tips",
+    body: [
+      "Photograph the item in daylight against a plain background, and show any damage honestly.",
+      "Price it to move. Most dorm items sell fastest at well under half of what they cost new.",
+      "Say where on campus you can meet and roughly when you're free — it saves a dozen messages.",
+      "Reply quickly. Buyers usually message several sellers at once.",
+    ],
+  },
+};
+
+export function InfoModal({ topic, onClose }: { topic: string; onClose: () => void }) {
+  const content = INFO[topic];
+  if (!content) return null;
+  return (
+    <Modal title={content.title} onClose={onClose}>
+      <div className="space-y-3 text-sm leading-relaxed text-ink">
+        {content.body.map((line) => (
+          <p key={line}>{line}</p>
+        ))}
       </div>
     </Modal>
   );
