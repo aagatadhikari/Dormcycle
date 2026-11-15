@@ -209,10 +209,12 @@ export default function Marketplace() {
                 setChatOpen(true);
               }}
             />
-            <div className="flex rounded-lg border border-slate-300 p-0.5">
-              <button onClick={() => setTab("buy")} className={`rounded-md px-4 py-1.5 text-sm font-semibold ${tab === "buy" ? "bg-brand text-white" : "text-brand hover:bg-mist"}`}>Buy</button>
-              <button onClick={() => { setTab("sell"); requireLogin(); }} className={`rounded-md px-4 py-1.5 text-sm font-semibold ${tab === "sell" ? "bg-brand text-white" : "text-brand hover:bg-mist"}`}>Sell</button>
-            </div>
+            <button
+              onClick={() => { setTab("sell"); requireLogin(); }}
+              className={`btn ${tab === "sell" ? "btn-outline" : "btn-primary"}`}
+            >
+              Sell
+            </button>
             {userId ? (
               <button onClick={() => supabase.auth.signOut()} className="text-sm font-medium text-ink hover:text-brand" title={userName}>Log out</button>
             ) : (
@@ -270,6 +272,9 @@ export default function Marketplace() {
           </>
         ) : (
           <section className="space-y-4">
+            <button onClick={() => setTab("buy")} className="text-sm font-semibold text-accent">
+              ← Back to listings
+            </button>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-mist p-6">
               <div>
                 <h1 className="text-2xl font-extrabold text-brand">Sell on DormCycle</h1>
