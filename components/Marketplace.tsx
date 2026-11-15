@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { CAMPUSES, CATALOG, CATEGORIES, CONDITIONS, label, price, type Product } from "@/lib/data";
+import { CAMPUSES, CATEGORIES, CONDITIONS, label, price, type Product } from "@/lib/data";
 import { CART_KEY, firstImage, type CartItem } from "@/lib/cart";
 import { AuthModal, CheckoutModal, DonateModal, InfoModal, OrdersModal, SellModal } from "./Modals";
 import CartDrawer from "./CartDrawer";
@@ -13,22 +13,6 @@ import NotificationBell from "./NotificationBell";
 
 type Filters = { category: string; campus: string; condition: string; maxPrice: string; sort: string };
 const NO_FILTERS: Filters = { category: "", campus: "", condition: "", maxPrice: "", sort: "newest" };
-
-function HeroShot({ img, alt, tag, h }: { img: string; alt: string; tag: string; h: string }) {
-  return (
-    <figure className={`relative overflow-hidden rounded-2xl ring-1 ring-white/25 ${h}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`https://images.unsplash.com/${img}?w=640&q=70&auto=format&fit=crop`}
-        alt={alt}
-        className="h-full w-full object-cover"
-      />
-      <figcaption className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
-        {tag}
-      </figcaption>
-    </figure>
-  );
-}
 
 function Card({ p }: { p: Product }) {
   const first = firstImage(p);
@@ -283,13 +267,13 @@ export default function Marketplace() {
   );
 
   const forSale = useMemo(
-    () => [...products.filter((p) => p.status === "active"), ...CATALOG].filter(matches).sort(sortFn),
+    () => products.filter((p) => p.status === "active").filter(matches).sort(sortFn),
     [products, matches, sortFn],
   );
   const mine = useMemo(() => products.filter((p) => p.seller_id === userId), [products, userId]);
-  // Hero counts cover everything on the page so the board never reads as empty.
+  // Homepage counts reflect real active database listings only.
   const liveProducts = useMemo(
-    () => [...products.filter((p) => p.status === "active"), ...CATALOG],
+    () => products.filter((p) => p.status === "active"),
     [products],
   );
   const freeCount = liveProducts.filter((p) => p.price_cents === 0).length;
@@ -422,10 +406,10 @@ export default function Marketplace() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-7 px-4 py-7 sm:px-6 lg:px-8">
         {tab === "buy" ? (
           <>
-            <section className="relative overflow-hidden rounded-2xl bg-[radial-gradient(120%_130%_at_88%_22%,#0a6e94_0%,#065277_38%,#004165_62%,#00263d_100%)] px-6 pb-8 pt-12 text-white sm:px-10 sm:pb-10 sm:pt-14">
+            <section className="relative overflow-hidden rounded-2xl bg-[radial-gradient(120%_130%_at_88%_22%,#0a6e94_0%,#065277_38%,#004165_62%,#00263d_100%)] px-6 pb-9 pt-12 text-white sm:px-10 sm:py-14 lg:px-12 lg:py-16">
               <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
               <div>
               <p className="flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
@@ -433,7 +417,7 @@ export default function Marketplace() {
                 The student marketplace, close to home
               </p>
 
-              <h1 className="mt-6 text-4xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">
+              <h1 className="mt-6 text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
                 Don&apos;t toss it.
                 <br />
                 <span className="text-[#86d5f2]">Keep it going.</span>
@@ -444,14 +428,17 @@ export default function Marketplace() {
                 more than one college life.
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-3">
+              <div className="mt-8 flex flex-wrap items-center gap-3">
                 <a href="#items" className="btn rounded-xl bg-white px-6 py-3 text-base text-brand hover:bg-mist">
                   Explore campus finds <span aria-hidden>→</span>
                 </a>
-                <button onClick={() => setInfo("how")} className="text-sm font-semibold text-white/90 hover:text-white">
-                  How DormCycle works <span aria-hidden>→</span>
+                <button onClick={() => openSell("sell")} className="btn rounded-xl border border-white/50 bg-white/10 px-6 py-3 text-base text-white hover:bg-white/20">
+                  + Sell an item
                 </button>
               </div>
+              <button onClick={() => setInfo("how")} className="mt-4 text-sm font-semibold text-white/90 hover:text-white">
+                How DormCycle works <span aria-hidden>→</span>
+              </button>
 
               <p className="mt-7 flex items-center gap-2 text-xs text-white/55">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-accent" aria-hidden>
@@ -490,29 +477,47 @@ export default function Marketplace() {
               </div>
 
               <aside className="relative">
-                {/* A corner of campus life, changing hands. */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div className="space-y-3 sm:space-y-4">
-                    <HeroShot img="photo-1632119289059-793dd347950f" alt="A dorm room with a bed and a desk" tag="A room coming together" h="h-40 sm:h-56" />
-                    <HeroShot img="photo-1540961403310-79825242906e" alt="A mini fridge" tag="Mini fridge · $60" h="h-28 sm:h-36" />
+                <div className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl backdrop-blur-sm sm:p-7">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white">
+                        <Image src="/brand/logo.png" alt="" width={34} height={34} />
+                      </span>
+                      <div>
+                        <p className="font-extrabold tracking-tight">DormCycle</p>
+                        <p className="text-xs text-white/65">Your campus marketplace</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-white/25 px-3 py-1 text-xs font-semibold text-white/80">Buy · Sell · Reuse</span>
                   </div>
-                  <div className="space-y-3 pt-6 sm:space-y-4 sm:pt-10">
-                    <HeroShot img="photo-1519219788971-8d9797e0928e" alt="A desk lamp" tag="Desk lamp · $12" h="h-28 sm:h-36" />
-                    <HeroShot img="photo-1495446815901-a7297e633e8d" alt="A stack of textbooks" tag="Textbooks · $40" h="h-40 sm:h-56" />
-                  </div>
-                </div>
 
-                <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white px-4 py-2 text-sm font-extrabold text-brand shadow-lg ring-1 ring-black/5">
-                  <Image src="/brand/logo.png" alt="" width={20} height={20} />
-                  Passed on, not tossed
+                  <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-white p-5 text-brand shadow-lg">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">01 · Discover</p>
+                      <p className="mt-3 text-xl font-extrabold">Find what your room needs.</p>
+                      <p className="mt-2 text-sm text-ink">Explore real listings from your campus community.</p>
+                      <a href="#items" className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-brand">Browse items <span aria-hidden>→</span></a>
+                    </div>
+                    <div className="rounded-2xl bg-white/12 p-5 text-white ring-1 ring-white/20">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/65">02 · Pass it on</p>
+                      <p className="mt-3 text-xl font-extrabold">Give your things another life.</p>
+                      <p className="mt-2 text-sm text-white/75">Create a listing and connect with another student.</p>
+                      <button onClick={() => openSell("sell")} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-white">List an item <span aria-hidden>→</span></button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/20 px-4 py-3">
+                    <p className="text-sm font-semibold text-white/85">Made for student-to-student campus handoffs</p>
+                    <Image src="/brand/logo.png" alt="" width={28} height={28} />
+                  </div>
                 </div>
 
                 <div className="mt-5 flex items-center justify-center gap-5 text-center text-xs text-white/70 sm:gap-7">
-                  <p><span className="mr-1.5 text-base font-extrabold text-white">{liveProducts.length}</span>listings</p>
+                  <p><span className="mr-1.5 text-base font-extrabold text-white">{loaded ? liveProducts.length : "—"}</span>listings</p>
                   <span className="h-3 w-px bg-white/25" aria-hidden />
-                  <p><span className="mr-1.5 text-base font-extrabold text-white">{freeCount}</span>free</p>
+                  <p><span className="mr-1.5 text-base font-extrabold text-white">{loaded ? freeCount : "—"}</span>free</p>
                   <span className="h-3 w-px bg-white/25" aria-hidden />
-                  <p><span className="mr-1.5 text-base font-extrabold text-white">{campusCount}</span>campuses</p>
+                  <p><span className="mr-1.5 text-base font-extrabold text-white">{loaded ? campusCount : "—"}</span>campuses</p>
                 </div>
               </aside>
               </div>
@@ -540,17 +545,28 @@ export default function Marketplace() {
                 )}
               </div>
               {forSale.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                   {forSale.map((p) => <Card key={p.id} p={p} />)}
                 </div>
               ) : (
                 <div className="card flex flex-col items-center gap-3 p-10 text-center text-sm text-ink">
                   <Image src="/brand/logo.png" alt="" width={34} height={34} className="opacity-40" />
-                  {!loaded ? "Loading listings…" : "Nothing matches that search yet. Try another category or clear the filters."}
+                  {!loaded
+                    ? "Loading listings…"
+                    : (q.trim() || activeFilters > 0)
+                      ? "Nothing matches that search yet. Try another category or clear the filters."
+                      : "No items listed yet. Be the first to sell something on DormCycle."}
                   {loaded && (
-                    <button onClick={() => { setQ(""); setFilters(NO_FILTERS); }} className="btn btn-outline">
-                      Clear filters
-                    </button>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {(q.trim() || activeFilters > 0) && (
+                        <button onClick={() => { setQ(""); setFilters(NO_FILTERS); }} className="btn btn-outline">
+                          Clear filters
+                        </button>
+                      )}
+                      <button onClick={() => openSell("sell")} className="btn btn-primary">
+                        + Sell an item
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
