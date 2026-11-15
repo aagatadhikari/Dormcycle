@@ -8,6 +8,12 @@ import { AuthModal, ProductModal, SellModal } from "./Modals";
 import ChatWidget from "./ChatWidget";
 import NotificationBell from "./NotificationBell";
 
+const HOW_IT_WORKS = [
+  { title: "List it", body: "Snap a few photos, set a price, and pick a campus pickup spot. Free items welcome." },
+  { title: "Chat", body: "Buyers message you in the pop-up chat, so you can agree on a time without swapping numbers." },
+  { title: "Hand it off", body: "Meet somewhere public on campus, hand it over, and mark the listing sold." },
+];
+
 type Filters = { category: string; campus: string; condition: string; maxPrice: string; sort: string };
 const NO_FILTERS: Filters = { category: "", campus: "", condition: "", maxPrice: "", sort: "newest" };
 
@@ -227,16 +233,64 @@ export default function Marketplace() {
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6">
         {tab === "buy" ? (
           <>
-            <section className="flex flex-col items-start gap-4 rounded-2xl bg-mist p-6 sm:flex-row sm:items-center sm:p-8">
-              <Image src="/brand/logo.png" alt="DormCycle logo" width={96} height={96} />
-              <div>
-                <h1 className="text-3xl font-extrabold text-brand sm:text-4xl">Don&apos;t toss it. Keep it going.</h1>
-                <p className="mt-2 max-w-xl text-ink">
-                  A student-to-student marketplace for dorm essentials, useful finds, and easy campus handoffs.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <a href="#items" className="btn btn-primary">Browse items</a>
-                  <button onClick={() => { if (requireLogin()) setSellOpen(true); }} className="btn btn-accent">Sell something</button>
+            <section className="relative overflow-hidden rounded-2xl bg-[radial-gradient(120%_130%_at_88%_22%,#0a6e94_0%,#065277_38%,#004165_62%,#00263d_100%)] px-6 pb-8 pt-12 text-white sm:px-10 sm:pb-10 sm:pt-14">
+              <p className="flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                <span className="h-2.5 w-2.5 rounded-full border-2 border-accent" aria-hidden />
+                The student marketplace, close to home
+              </p>
+
+              <h1 className="mt-6 text-4xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">
+                Don&apos;t toss it.
+                <br />
+                <span className="text-[#86d5f2]">Keep it going.</span>
+              </h1>
+
+              <p className="mt-5 max-w-xl text-base leading-relaxed text-white/80 sm:text-lg">
+                Find what your room is missing, or pass along what you&apos;re ready to leave behind. Good things have
+                more than one college life.
+              </p>
+
+              <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-3">
+                <a href="#items" className="btn rounded-xl bg-white px-6 py-3 text-base text-brand hover:bg-mist">
+                  Explore campus finds <span aria-hidden>→</span>
+                </a>
+                <a href="#how" className="text-sm font-semibold text-white/90 hover:text-white">
+                  How DormCycle works <span aria-hidden>↓</span>
+                </a>
+              </div>
+
+              <p className="mt-7 flex items-center gap-2 text-xs text-white/55">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-accent" aria-hidden>
+                  <path d="M12 2l1.8 6.4L20 10l-6.2 1.6L12 18l-1.8-6.4L4 10l6.2-1.6z" />
+                </svg>
+                Made for student-to-student campus handoffs
+              </p>
+
+              {/* Decorative: two finds orbiting the DormCycle mark. */}
+              <div className="relative mt-8 hidden h-44 select-none sm:block" aria-hidden>
+                <svg viewBox="0 0 640 176" className="absolute inset-0 h-full w-full" fill="none" preserveAspectRatio="none">
+                  <ellipse cx="320" cy="88" rx="196" ry="70" transform="rotate(-9 320 88)" stroke="rgba(255,255,255,0.22)" strokeWidth="1" />
+                </svg>
+
+                <div className="absolute left-[3%] top-[10%] w-44 rounded-2xl bg-white/12 px-4 py-3 ring-1 ring-white/25 backdrop-blur-sm">
+                  <span className="text-accent" aria-hidden>↗</span>
+                  <p className="mt-1 font-semibold">Good finds</p>
+                  <p className="text-xs text-white/60">Second life starts here</p>
+                </div>
+
+                <div className="absolute left-1/2 top-1/2 flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1.5 rounded-full bg-white/12 text-center ring-1 ring-white/25 backdrop-blur-sm">
+                  <Image src="/brand/logo.png" alt="" width={46} height={46} />
+                  <p className="text-[11px] font-semibold leading-tight">
+                    one more
+                    <br />
+                    college life
+                  </p>
+                </div>
+
+                <div className="absolute right-[3%] top-[40%] w-44 rounded-2xl bg-white/12 px-4 py-3 ring-1 ring-white/25 backdrop-blur-sm">
+                  <span className="text-accent" aria-hidden>✶</span>
+                  <p className="mt-1 font-semibold">Close by</p>
+                  <p className="text-xs text-white/60">Meet on campus</p>
                 </div>
               </div>
             </section>
@@ -269,6 +323,21 @@ export default function Marketplace() {
                 </div>
               </section>
             )}
+
+            <section id="how" className="scroll-mt-24 space-y-3">
+              <h2 className="text-lg font-bold text-brand">How DormCycle works</h2>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {HOW_IT_WORKS.map((step, i) => (
+                  <div key={step.title} className="card p-5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-mist text-sm font-bold text-brand">
+                      {i + 1}
+                    </span>
+                    <h3 className="mt-3 font-bold text-brand">{step.title}</h3>
+                    <p className="mt-1 text-sm text-ink">{step.body}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
           </>
         ) : (
           <section className="space-y-4">
