@@ -364,12 +364,12 @@ export function ProductModal({
 
         {product.example ? (
           <div className="space-y-2">
-            <p className="rounded-md bg-mist p-3 text-sm text-brand">
-              This is an example listing to show how DormCycle works. Real student listings appear at the top of the page.
-            </p>
-            <button onClick={() => onAddToCart(product)} disabled={inCart} className="btn btn-outline w-full">
+            <button onClick={() => onAddToCart(product)} disabled={inCart} className="btn btn-primary w-full">
               {inCart ? "In your cart" : "Add to cart"}
             </button>
+            <p className="text-xs text-ink">
+              Messaging opens once the seller signs in. You can still add this to your cart and check out.
+            </p>
           </div>
         ) : mine ? (
           <div className="flex flex-wrap gap-2">
@@ -715,8 +715,8 @@ export function CheckoutModal({
           <p className="rounded-md bg-mist p-3 text-brand">
             {demo ? (
               <>
-                This cart held example listings, so this is a sample receipt — nothing was ordered and no seller was
-                messaged. Real listings work the same way, and message the seller for you.
+                These items aren&apos;t attached to a seller account yet, so nothing was charged and no message was
+                sent. Keep this receipt — listings with an active seller message them for you automatically.
               </>
             ) : (
               <>

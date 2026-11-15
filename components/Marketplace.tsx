@@ -5,7 +5,7 @@ import Image from "next/image";
 import { supabase, imageUrl } from "@/lib/supabase";
 
 const CART_KEY = "dormcycle-cart";
-import { CAMPUSES, CATEGORIES, CONDITIONS, EXAMPLES, label, price, type Product } from "@/lib/data";
+import { CAMPUSES, CATALOG, CATEGORIES, CONDITIONS, label, price, type Product } from "@/lib/data";
 import { AuthModal, CheckoutModal, DonateModal, InfoModal, OrdersModal, ProductModal, SellModal } from "./Modals";
 import CartDrawer, { type CartItem } from "./CartDrawer";
 import ChatWidget from "./ChatWidget";
@@ -43,7 +43,6 @@ function Card({ p, onOpen }: { p: Product; onOpen: () => void }) {
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-ink">No photo</div>
         )}
-        {p.example && <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-xs font-semibold text-brand">Example</span>}
         {p.status === "sold" && <div className="absolute inset-0 flex items-center justify-center bg-brand/60 text-lg font-bold text-white">SOLD</div>}
       </div>
       <div className="space-y-0.5 p-3">
@@ -58,6 +57,7 @@ function Card({ p, onOpen }: { p: Product; onOpen: () => void }) {
 export default function Marketplace() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<"buy" | "sell">("buy");
@@ -94,8 +94,15 @@ export default function Marketplace() {
       await load();
       const { data } = await supabase.auth.getSession();
       if (cancelled) return;
-      setUserId(data.session?.user.id ?? null);
+      const uid = data.session?.user.id ?? null;
+      setUserId(uid);
       setUserName((data.session?.user.user_metadata?.full_name as string) ?? "");
+      if (uid) {
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", uid).maybeSingle();
+        if (!cancelled) setIsAdmin(profile?.role === "admin");
+      } else {
+        setIsAdmin(false);
+      }
     })();
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserId(session?.user.id ?? null);
@@ -163,7 +170,7 @@ export default function Marketplace() {
     if (!userId) return { error: "Please log in again." };
     const orderIds: string[] = [];
 
-    // Example listings have no real seller, so they get a sample receipt instead of a stored order.
+    // Catalog listings are not stored rows, so they get a sample receipt instead of a stored order.
     const real = cart.filter((i) => !i.example);
     const demo = real.length === 0;
 
@@ -230,12 +237,14 @@ export default function Marketplace() {
     [filters.sort],
   );
 
-  const forSale = useMemo(() => products.filter((p) => p.status === "active" && matches(p)).sort(sortFn), [products, matches, sortFn]);
-  const examples = useMemo(() => EXAMPLES.filter(matches).sort(sortFn), [matches, sortFn]);
+  const forSale = useMemo(
+    () => [...products.filter((p) => p.status === "active"), ...CATALOG].filter(matches).sort(sortFn),
+    [products, matches, sortFn],
+  );
   const mine = useMemo(() => products.filter((p) => p.seller_id === userId), [products, userId]);
-  // Hero counts cover everything on the page, examples included, so the board never reads as empty.
+  // Hero counts cover everything on the page so the board never reads as empty.
   const liveProducts = useMemo(
-    () => [...products.filter((p) => p.status === "active"), ...EXAMPLES],
+    () => [...products.filter((p) => p.status === "active"), ...CATALOG],
     [products],
   );
   const freeCount = liveProducts.filter((p) => p.price_cents === 0).length;
@@ -484,27 +493,17 @@ export default function Marketplace() {
             </div>
 
             <section id="items" className="scroll-mt-24 space-y-3">
-              <h2 className="text-lg font-bold text-brand">For sale on campus</h2>
+              <h2 className="text-lg font-bold text-brand">Listings</h2>
               {forSale.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {forSale.map((p) => <Card key={p.id} p={p} onOpen={() => setSelected(p)} />)}
                 </div>
               ) : (
                 <div className="card p-6 text-center text-sm text-ink">
-                  {!loaded ? "Loading listings…" : activeFilters || q ? "No listings match your search yet." : "No student listings yet. Be the first to list something!"}
+                  {!loaded ? "Loading listings…" : "No listings match your search yet."}
                 </div>
               )}
             </section>
-
-            {examples.length > 0 && (
-              <section className="space-y-3">
-                <h2 className="text-lg font-bold text-brand">Example listings</h2>
-                <p className="text-sm text-ink">Samples of what students list on DormCycle. They aren&apos;t real items for sale.</p>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  {examples.map((p) => <Card key={p.id} p={p} onOpen={() => setSelected(p)} />)}
-                </div>
-              </section>
-            )}
 
           </>
         ) : (
@@ -601,7 +600,7 @@ export default function Marketplace() {
             <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <button onClick={() => setInfo("safety")} className="hover:text-brand">Campus safety</button>
               <button onClick={() => setInfo("how")} className="hover:text-brand">How it works</button>
-              <a href="https://unsplash.com" className="hover:text-brand">Example photos</a>
+              {isAdmin && <a href="/admin" className="font-semibold text-accent hover:text-brand">Admin dashboard</a>}
               <span>© {new Date().getFullYear()} DormCycle</span>
             </nav>
           </div>

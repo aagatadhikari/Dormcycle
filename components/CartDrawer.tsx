@@ -79,7 +79,6 @@ export default function CartDrawer({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{item.title}</p>
                     <p className="text-sm text-brand">{price(item.price_cents)}</p>
-                    {item.example && <p className="text-[11px] text-ink">Example listing</p>}
                   </div>
                   <button onClick={() => onRemove(item.id)} className="text-xs font-semibold text-ink underline hover:text-red-600">
                     Remove
