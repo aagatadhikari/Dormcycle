@@ -599,13 +599,14 @@ export function CheckoutModal({
 }: {
   items: CheckoutLine[];
   onClose: () => void;
-  onPlace: (note: string) => Promise<{ error?: string; orderIds?: string[] }>;
+  onPlace: (note: string) => Promise<{ error?: string; orderIds?: string[]; demo?: boolean }>;
   onViewMessages: () => void;
 }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [orderIds, setOrderIds] = useState<string[] | null>(null);
+  const [demo, setDemo] = useState(false);
   const [method, setMethod] = useState<"handoff" | "card">("handoff");
   const [card, setCard] = useState({ name: "", number: "", exp: "", cvc: "", zip: "" });
   const [placedAt, setPlacedAt] = useState<Date | null>(null);
@@ -638,6 +639,7 @@ export function CheckoutModal({
     setBusy(false);
     if (result.error) return setError(result.error);
     setPlacedAt(new Date());
+    setDemo(Boolean(result.demo));
     setOrderIds(result.orderIds ?? []);
   }
 
@@ -711,21 +713,32 @@ export function CheckoutModal({
           </div>
 
           <p className="rounded-md bg-mist p-3 text-brand">
-            {sellers === 1 ? "The seller has" : `All ${sellers} sellers have`} been messaged to arrange your campus
-            handoff.
-            {orderIds.length > 1 && (
+            {demo ? (
               <>
-                {" "}
-                Order numbers:{" "}
-                <span className="font-mono">{orderIds.map((id) => `#${id.slice(0, 8).toUpperCase()}`).join("  ")}</span>
+                This cart held example listings, so this is a sample receipt — nothing was ordered and no seller was
+                messaged. Real listings work the same way, and message the seller for you.
+              </>
+            ) : (
+              <>
+                {sellers === 1 ? "The seller has" : `All ${sellers} sellers have`} been messaged to arrange your campus
+                handoff.
+                {orderIds.length > 1 && (
+                  <>
+                    {" "}
+                    Order numbers:{" "}
+                    <span className="font-mono">
+                      {orderIds.map((id) => `#${id.slice(0, 8).toUpperCase()}`).join("  ")}
+                    </span>
+                  </>
+                )}
               </>
             )}
           </p>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className={`grid gap-2 ${demo ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
             <button onClick={() => window.print()} className="btn btn-outline">Print</button>
-            <button onClick={onViewMessages} className="btn btn-primary">View messages</button>
-            <button onClick={onClose} className="btn btn-outline">Done</button>
+            {!demo && <button onClick={onViewMessages} className="btn btn-primary">View messages</button>}
+            <button onClick={onClose} className="btn btn-primary">Done</button>
           </div>
         </div>
       </Modal>

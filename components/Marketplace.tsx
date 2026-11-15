@@ -150,9 +150,6 @@ export default function Marketplace() {
   // Checkout opens the order form; the cart only needs to be valid first.
   function startCheckout() {
     if (!requireLogin() || !userId) return;
-    if (cart.some((i) => i.example)) {
-      return setCartNote("Example listings are just samples. Remove them to check out.");
-    }
     if (cart.some((i) => i.seller_id === userId)) {
       return setCartNote("One of these is your own listing. Remove it to check out.");
     }
@@ -162,11 +159,15 @@ export default function Marketplace() {
   }
 
   // Demo checkout: records a pending order per item and messages each seller. No payment is taken.
-  async function placeOrder(note: string): Promise<{ error?: string; orderIds?: string[] }> {
+  async function placeOrder(note: string): Promise<{ error?: string; orderIds?: string[]; demo?: boolean }> {
     if (!userId) return { error: "Please log in again." };
     const orderIds: string[] = [];
 
-    for (const item of cart) {
+    // Example listings have no real seller, so they get a sample receipt instead of a stored order.
+    const real = cart.filter((i) => !i.example);
+    const demo = real.length === 0;
+
+    for (const item of real) {
       const { data, error } = await supabase
         .from("orders")
         .insert({
@@ -184,7 +185,7 @@ export default function Marketplace() {
     }
 
     const bySeller = new Map<string, CartItem[]>();
-    cart.forEach((i) => bySeller.set(i.seller_id, [...(bySeller.get(i.seller_id) ?? []), i]));
+    real.forEach((i) => bySeller.set(i.seller_id, [...(bySeller.get(i.seller_id) ?? []), i]));
 
     for (const group of bySeller.values()) {
       const { data: convId, error } = await supabase.rpc("start_conversation", { p_product_id: group[0].id });
@@ -202,8 +203,10 @@ export default function Marketplace() {
       setChatId(convId as string);
     }
 
+    if (demo) orderIds.push(`demo${Math.random().toString(36).slice(2, 10)}`);
+
     setCart([]);
-    return { orderIds };
+    return { orderIds, demo };
   }
 
   const matches = useCallback(
