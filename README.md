@@ -16,11 +16,6 @@ Online payment (Stripe) and the admin dashboard are not part of this version yet
 ## Tech
 Next.js, TypeScript, Tailwind CSS, Supabase (auth, database, storage, realtime). The Supabase URL and publishable key in `lib/supabase.ts` are public values; access is controlled by Row Level Security in the database. No secret keys belong in this repository.
 
-## Run locally
-```bash
-npm install
-npm run dev
-```
-Open http://localhost:3000.
+
 
 Example listing photos are from Unsplash. Brand colors follow the DormCycle brand sheet.
