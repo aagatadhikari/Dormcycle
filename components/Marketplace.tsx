@@ -462,12 +462,12 @@ export default function Marketplace() {
               />
 
               <button onClick={() => { setTab("sell"); requireLogin(); }} className="btn btn-primary lg:hidden">Sell</button>
-              <button onClick={openDonate} className="hidden btn btn-outline sm:inline-flex">Donate</button>
+              <button onClick={openDonate} className="btn btn-outline hidden xl:inline-flex">Donate</button>
 
               {userId ? (
-                <button onClick={() => supabase.auth.signOut()} className="text-sm font-medium text-ink hover:text-brand" title={userName}>Log out</button>
+                <button onClick={() => supabase.auth.signOut()} className="whitespace-nowrap px-1 text-sm font-medium text-ink hover:text-brand" title={userName}>Log out</button>
               ) : (
-                <button onClick={() => setAuthOpen(true)} className="text-sm font-semibold text-brand">Log in</button>
+                <button onClick={() => setAuthOpen(true)} className="whitespace-nowrap px-1 text-sm font-semibold text-brand">Log in</button>
               )}
             </div>
           </div>
