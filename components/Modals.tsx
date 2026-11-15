@@ -606,9 +606,11 @@ export function CheckoutModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [orderIds, setOrderIds] = useState<string[] | null>(null);
+  // Snapshot the cart: placing the order empties it, but the receipt still needs the lines.
+  const [lines] = useState(items);
 
-  const total = items.reduce((sum, i) => sum + i.price_cents, 0);
-  const sellers = new Set(items.map((i) => i.seller_id)).size;
+  const total = lines.reduce((sum, i) => sum + i.price_cents, 0);
+  const sellers = new Set(lines.map((i) => i.seller_id)).size;
 
   async function place(e: React.FormEvent) {
     e.preventDefault();
@@ -654,7 +656,7 @@ export function CheckoutModal({
     <Modal title="Checkout" onClose={onClose}>
       <form onSubmit={place} className="space-y-4">
         <div className="rounded-lg border border-slate-200">
-          {items.map((i) => (
+          {lines.map((i) => (
             <div key={i.id} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-sm last:border-b-0">
               <span className="min-w-0 truncate">{i.title}</span>
               <span className="shrink-0 font-semibold">{price(i.price_cents)}</span>
