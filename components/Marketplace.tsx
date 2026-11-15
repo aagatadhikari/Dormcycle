@@ -14,6 +14,63 @@ import NotificationBell from "./NotificationBell";
 type Filters = { category: string; campus: string; condition: string; maxPrice: string; sort: string };
 const NO_FILTERS: Filters = { category: "", campus: "", condition: "", maxPrice: "", sort: "newest" };
 
+const CATEGORY_ICONS: Record<string, string> = {
+  all: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  furniture: "M5 10V6a2 2 0 012-2h10a2 2 0 012 2v4M4 10h16v4H4zM6 14v5M18 14v5",
+  electronics: "M3 5h18v11H3zM8 20h8M12 16v4",
+  textbooks: "M5 4h11a2 2 0 012 2v14H7a2 2 0 01-2-2zM9 4v16",
+  clothing: "M8 3l4 2 4-2 4 3-2 3-2-1v12H8V8L6 9 4 6z",
+  kitchen: "M4 7h12v7a4 4 0 01-4 4H8a4 4 0 01-4-4zM16 9h2a2 2 0 110 4h-2",
+  other: "M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10",
+  free: "M12 21s-7-4.3-7-9a4 4 0 017-2.6A4 4 0 0119 12c0 4.7-7 9-7 9z",
+};
+
+function SearchField({
+  q,
+  setQ,
+  showFilters,
+  setShowFilters,
+  activeFilters,
+}: {
+  q: string;
+  setQ: (v: string) => void;
+  showFilters: boolean;
+  setShowFilters: (v: boolean) => void;
+  activeFilters: number;
+}) {
+  return (
+    <div className="flex h-12 w-full items-center gap-2 rounded-full border border-slate-200 bg-white pl-4 pr-1.5 shadow-sm transition focus-within:border-accent focus-within:shadow">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-ink" aria-hidden>
+        <circle cx="11" cy="11" r="7" />
+        <path d="M20 20l-3.5-3.5" />
+      </svg>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search for a fridge, a desk lamp, textbooks…"
+        aria-label="Search listings"
+        className="h-full w-full bg-transparent text-[15px] outline-none placeholder:text-ink/70"
+      />
+      <button
+        onClick={() => setShowFilters(!showFilters)}
+        aria-expanded={showFilters}
+        className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface px-3.5 py-2 text-sm font-semibold text-brand transition hover:bg-mist"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M3 6h18M6 12h12M10 18h4" /></svg>
+        Filters{activeFilters ? ` (${activeFilters})` : ""}
+      </button>
+    </div>
+  );
+}
+
+function CategoryIcon({ name }: { name: string }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={CATEGORY_ICONS[name] ?? CATEGORY_ICONS.other} />
+    </svg>
+  );
+}
+
 function HeroShot({ img, alt, tag, h }: { img: string; alt: string; tag: string; h: string }) {
   return (
     <figure className={`relative overflow-hidden rounded-2xl ring-1 ring-white/25 ${h}`}>
@@ -324,26 +381,114 @@ export default function Marketplace() {
   }
 
   const pill = (on: boolean) =>
-    `whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${on ? "border-brand bg-brand text-white shadow-sm" : "border-slate-200 bg-white text-ink hover:border-accent/50 hover:bg-mist hover:text-brand"}`;
+    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${on ? "border-brand bg-brand text-white shadow-sm" : "border-slate-200 bg-white text-ink hover:border-accent/50 hover:bg-mist hover:text-brand"}`;
   const setF = (k: keyof Filters, v: string) => setFilters((f) => ({ ...f, [k]: v }));
 
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
-          <a href="#" className="flex items-center gap-2" onClick={() => setTab("buy")}>
-            <Image src="/brand/logo.png" alt="" width={36} height={36} priority />
-            <span className="text-xl font-extrabold tracking-tight text-brand">Dorm<span className="text-accent">Cycle</span></span>
-          </a>
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="flex h-20 items-center gap-4">
+            {/* Logo */}
+            <a href="#" onClick={() => setTab("buy")} className="flex shrink-0 items-center gap-2.5">
+              <Image src="/brand/logo.png" alt="" width={44} height={44} priority />
+              <span className="hidden text-2xl font-extrabold tracking-tight text-brand sm:block">
+                Dorm<span className="text-accent">Cycle</span>
+              </span>
+            </a>
 
-          <div className="relative order-last flex w-full gap-2 sm:order-none sm:w-auto sm:max-w-xl sm:flex-1">
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search dorm essentials…" aria-label="Search" className="input" />
-            <button onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters} className="btn btn-outline shrink-0">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M3 6h18M6 12h12M10 18h4" /></svg>
-              Filters{activeFilters ? ` (${activeFilters})` : ""}
-            </button>
-            {showFilters && (
-              <div className="card absolute right-0 top-full z-40 mt-2 w-full space-y-3 p-4 shadow-lg sm:w-80">
+            {/* Search, centre stage */}
+            <div className="relative mx-auto hidden w-full max-w-xl md:block">
+              <SearchField
+                q={q}
+                setQ={setQ}
+                showFilters={showFilters}
+                setShowFilters={setShowFilters}
+                activeFilters={activeFilters}
+              />
+            </div>
+
+            {/* Buy / Sell */}
+            <div className="ml-auto flex items-center gap-2">
+              <div className="hidden items-center rounded-full bg-surface p-1 lg:flex">
+                <button
+                  onClick={() => { setTab("buy"); document.getElementById("items")?.scrollIntoView({ behavior: "smooth" }); }}
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${tab === "buy" ? "bg-white text-brand shadow-sm" : "text-ink hover:text-brand"}`}
+                >
+                  Buy
+                </button>
+                <button
+                  onClick={() => { setTab("sell"); requireLogin(); }}
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${tab === "sell" ? "bg-white text-brand shadow-sm" : "text-ink hover:text-brand"}`}
+                >
+                  Sell
+                </button>
+              </div>
+
+              {/* Campus */}
+              <label className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-ink xl:flex">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                  <path d="M12 21s-7-5.6-7-10a7 7 0 1114 0c0 4.4-7 10-7 10z" strokeLinejoin="round" />
+                  <circle cx="12" cy="11" r="2.4" />
+                </svg>
+                <span className="sr-only">Campus</span>
+                <select
+                  value={filters.campus}
+                  onChange={(e) => setF("campus", e.target.value)}
+                  className="max-w-[9rem] cursor-pointer truncate bg-transparent font-medium outline-none"
+                >
+                  <option value="">All campuses</option>
+                  {CAMPUSES.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </label>
+
+              <button
+                onClick={() => (userId ? setChatOpen(!chatOpen) : setAuthOpen(true))}
+                aria-label="Messages"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-brand transition hover:bg-mist"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+                </svg>
+              </button>
+
+              <NotificationBell
+                userId={userId}
+                onNeedLogin={() => setAuthOpen(true)}
+                onOpenConversation={(id) => {
+                  setChatId(id);
+                  setChatOpen(true);
+                }}
+              />
+
+              <button onClick={() => { setTab("sell"); requireLogin(); }} className="btn btn-primary lg:hidden">Sell</button>
+              <button onClick={openDonate} className="hidden btn btn-outline sm:inline-flex">Donate</button>
+
+              {userId ? (
+                <button onClick={() => supabase.auth.signOut()} className="text-sm font-medium text-ink hover:text-brand" title={userName}>Log out</button>
+              ) : (
+                <button onClick={() => setAuthOpen(true)} className="text-sm font-semibold text-brand">Log in</button>
+              )}
+            </div>
+          </div>
+
+          {/* Search on small screens */}
+          <div className="relative pb-3 md:hidden">
+            <SearchField
+              q={q}
+              setQ={setQ}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+              activeFilters={activeFilters}
+            />
+
+          </div>
+        </div>
+
+          {showFilters && (
+            <div className="absolute inset-x-0 top-full z-40 px-4 pb-4">
+              <div className="mx-auto max-w-6xl">
+                <div className="card ml-auto w-full space-y-3 p-4 shadow-xl sm:w-80">
                 <div>
                   <label className="label" htmlFor="f-cat">Category</label>
                   <select id="f-cat" value={filters.category} onChange={(e) => setF("category", e.target.value)} className="input">
@@ -385,41 +530,9 @@ export default function Marketplace() {
                   <button onClick={() => setShowFilters(false)} className="btn btn-primary">Show results</button>
                 </div>
               </div>
-            )}
-          </div>
-
-          <nav className="ml-auto flex items-center gap-1 sm:gap-2">
-            <button
-              onClick={() => (userId ? setChatOpen(!chatOpen) : setAuthOpen(true))}
-              aria-label="Messages"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-brand hover:bg-mist"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
-              </svg>
-            </button>
-            <NotificationBell
-              userId={userId}
-              onNeedLogin={() => setAuthOpen(true)}
-              onOpenConversation={(id) => {
-                setChatId(id);
-                setChatOpen(true);
-              }}
-            />
-            <button
-              onClick={() => { setTab("sell"); requireLogin(); }}
-              className={`btn ${tab === "sell" ? "btn-outline" : "btn-primary"}`}
-            >
-              Sell
-            </button>
-            <button onClick={openDonate} className="btn btn-outline">Donate</button>
-            {userId ? (
-              <button onClick={() => supabase.auth.signOut()} className="text-sm font-medium text-ink hover:text-brand" title={userName}>Log out</button>
-            ) : (
-              <button onClick={() => setAuthOpen(true)} className="text-sm font-semibold text-brand">Log in</button>
-            )}
-          </nav>
-        </div>
+              </div>
+            </div>
+          )}
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6">
@@ -520,9 +633,17 @@ export default function Marketplace() {
 
             <div className="sticky top-16 z-20 -mx-4 overflow-x-auto bg-white/90 px-4 py-3 backdrop-blur">
               <div className="flex gap-2">
-                <button onClick={() => setF("category", "")} className={pill(!filters.category)}>All items</button>
-                {CATEGORIES.map(([k, v]) => <button key={k} onClick={() => setF("category", k)} className={pill(filters.category === k)}>{v}</button>)}
-                <button onClick={() => setF("category", "free")} className={pill(filters.category === "free")}>Free items</button>
+                <button onClick={() => setF("category", "")} className={pill(!filters.category)}>
+                  <CategoryIcon name="all" /> All items
+                </button>
+                {CATEGORIES.map(([k, v]) => (
+                  <button key={k} onClick={() => setF("category", k)} className={pill(filters.category === k)}>
+                    <CategoryIcon name={k} /> {v}
+                  </button>
+                ))}
+                <button onClick={() => setF("category", "free")} className={pill(filters.category === "free")}>
+                  <CategoryIcon name="free" /> Free items
+                </button>
               </div>
             </div>
 
