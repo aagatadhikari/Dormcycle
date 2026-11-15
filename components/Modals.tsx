@@ -606,44 +606,124 @@ export function CheckoutModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [orderIds, setOrderIds] = useState<string[] | null>(null);
+  const [method, setMethod] = useState<"handoff" | "card">("handoff");
+  const [card, setCard] = useState({ name: "", number: "", exp: "", cvc: "", zip: "" });
+  const [placedAt, setPlacedAt] = useState<Date | null>(null);
   // Snapshot the cart: placing the order empties it, but the receipt still needs the lines.
   const [lines] = useState(items);
 
   const total = lines.reduce((sum, i) => sum + i.price_cents, 0);
   const sellers = new Set(lines.map((i) => i.seller_id)).size;
+  const digits = card.number.replace(/\D/g, "");
+  const last4 = digits.slice(-4);
+
+  const setCardField = (key: keyof typeof card, value: string) => setCard((c) => ({ ...c, [key]: value }));
+
+  const cardNumber = (value: string) =>
+    value.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+
+  const expiry = (value: string) => {
+    const d = value.replace(/\D/g, "").slice(0, 4);
+    return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+  };
 
   async function place(e: React.FormEvent) {
     e.preventDefault();
+    if (method === "card" && (digits.length < 12 || card.exp.length < 4 || card.cvc.length < 3)) {
+      return setError("Fill in the demo card fields — any numbers work, nothing is charged.");
+    }
     setBusy(true);
     setError("");
     const result = await onPlace(note.trim());
     setBusy(false);
     if (result.error) return setError(result.error);
+    setPlacedAt(new Date());
     setOrderIds(result.orderIds ?? []);
   }
 
   if (orderIds) {
+    const receiptNo = orderIds[0] ? `#${orderIds[0].slice(0, 8).toUpperCase()}` : "#DEMO";
     return (
-      <Modal title="Order placed" onClose={onClose}>
+      <Modal title="Receipt" onClose={onClose}>
         <div className="space-y-4 text-sm">
+          <div className="rounded-xl border border-slate-200">
+            <div className="flex items-start justify-between gap-3 border-b border-dashed border-slate-300 bg-mist px-4 py-3">
+              <div>
+                <p className="text-base font-extrabold text-brand">DormCycle</p>
+                <p className="text-xs text-ink">Don&apos;t toss it. Keep it going.</p>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-sm font-bold text-brand">{receiptNo}</p>
+                <p className="text-xs text-ink">
+                  {(placedAt ?? new Date()).toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <div className="px-4 py-3">
+              {lines.map((i) => (
+                <div key={i.id} className="flex items-baseline justify-between gap-3 py-1">
+                  <span className="min-w-0 truncate">{i.title}</span>
+                  <span className="shrink-0 font-semibold">{price(i.price_cents)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1 border-t border-dashed border-slate-300 px-4 py-3">
+              <div className="flex justify-between text-ink">
+                <span>Subtotal</span>
+                <span>{price(total)}</span>
+              </div>
+              <div className="flex justify-between text-ink">
+                <span>Campus pickup</span>
+                <span>Free</span>
+              </div>
+              <div className="flex justify-between text-ink">
+                <span>DormCycle fee</span>
+                <span>$0.00</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-extrabold text-brand">
+                <span>Total</span>
+                <span>{price(total)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-dashed border-slate-300 px-4 py-3 text-xs text-ink">
+              <span>
+                {method === "card" ? (
+                  <>
+                    Demo card ending {last4 || "••••"} — <b className="text-brand">not charged</b>
+                  </>
+                ) : (
+                  <>
+                    Paying in person — <b className="text-brand">bring {price(total)}</b>
+                  </>
+                )}
+              </span>
+              <span className="rounded-full bg-mist px-2 py-0.5 font-semibold text-brand">Demo order</span>
+            </div>
+          </div>
+
           <p className="rounded-md bg-mist p-3 text-brand">
-            Thanks! {sellers === 1 ? "The seller has" : `All ${sellers} sellers have`} been messaged to arrange your
-            campus handoff.
+            {sellers === 1 ? "The seller has" : `All ${sellers} sellers have`} been messaged to arrange your campus
+            handoff.
+            {orderIds.length > 1 && (
+              <>
+                {" "}
+                Order numbers:{" "}
+                <span className="font-mono">{orderIds.map((id) => `#${id.slice(0, 8).toUpperCase()}`).join("  ")}</span>
+              </>
+            )}
           </p>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-ink">
-              {orderIds.length === 1 ? "Order number" : "Order numbers"}
-            </p>
-            <p className="font-mono font-semibold text-brand">
-              {orderIds.map((id) => `#${id.slice(0, 8).toUpperCase()}`).join("  ")}
-            </p>
-          </div>
-          <div className="flex items-center justify-between border-t border-slate-200 pt-3 font-bold text-brand">
-            <span>Total due at pickup</span>
-            <span>{price(total)}</span>
-          </div>
-          <p className="text-ink">Bring {price(total)} to the handoff. Nothing has been charged online.</p>
-          <div className="grid gap-2 sm:grid-cols-2">
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <button onClick={() => window.print()} className="btn btn-outline">Print</button>
             <button onClick={onViewMessages} className="btn btn-primary">View messages</button>
             <button onClick={onClose} className="btn btn-outline">Done</button>
           </div>
@@ -668,27 +748,111 @@ export function CheckoutModal({
           </div>
         </div>
 
-        <fieldset className="space-y-2 rounded-lg border border-slate-200 p-3">
+        <fieldset className="space-y-3 rounded-lg border border-slate-200 p-3">
           <legend className="px-1 text-sm font-bold text-brand">Payment</legend>
+
           <label className="flex items-start gap-2 text-sm">
-            <input type="radio" name="pay" defaultChecked className="mt-1" />
+            <input
+              type="radio"
+              name="pay"
+              checked={method === "handoff"}
+              onChange={() => setMethod("handoff")}
+              className="mt-1"
+            />
             <span>
               <b>Pay at handoff</b>
               <br />
               <span className="text-ink">Cash or whatever you both agree on, when you meet on campus.</span>
             </span>
           </label>
-          <label className="flex items-start gap-2 text-sm opacity-60">
-            <input type="radio" name="pay" disabled className="mt-1" />
+
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="radio"
+              name="pay"
+              checked={method === "card"}
+              onChange={() => setMethod("card")}
+              className="mt-1"
+            />
             <span>
-              <b>Card payment</b> — coming soon
+              <b>Card</b> <span className="rounded-full bg-mist px-2 py-0.5 text-xs font-semibold text-brand">Demo</span>
               <br />
-              <span className="text-ink">Online card payment isn&apos;t connected yet.</span>
+              <span className="text-ink">Shows how card checkout will look. No card is charged.</span>
             </span>
           </label>
+
+          {method === "card" && (
+            <div className="space-y-2 rounded-lg bg-surface p-3">
+              <div>
+                <label className="label" htmlFor="cc-name">Name on card</label>
+                <input
+                  id="cc-name"
+                  value={card.name}
+                  onChange={(e) => setCardField("name", e.target.value)}
+                  className="input"
+                  placeholder="Jordan Student"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="label" htmlFor="cc-number">Card number</label>
+                <input
+                  id="cc-number"
+                  value={card.number}
+                  onChange={(e) => setCardField("number", cardNumber(e.target.value))}
+                  className="input font-mono"
+                  inputMode="numeric"
+                  placeholder="4242 4242 4242 4242"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="label" htmlFor="cc-exp">Expiry</label>
+                  <input
+                    id="cc-exp"
+                    value={card.exp}
+                    onChange={(e) => setCardField("exp", expiry(e.target.value))}
+                    className="input font-mono"
+                    inputMode="numeric"
+                    placeholder="12/28"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="cc-cvc">CVC</label>
+                  <input
+                    id="cc-cvc"
+                    value={card.cvc}
+                    onChange={(e) => setCardField("cvc", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    className="input font-mono"
+                    inputMode="numeric"
+                    placeholder="123"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="cc-zip">ZIP</label>
+                  <input
+                    id="cc-zip"
+                    value={card.zip}
+                    onChange={(e) => setCardField("zip", e.target.value.slice(0, 10))}
+                    className="input font-mono"
+                    inputMode="numeric"
+                    placeholder="57042"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-ink">
+                Use made-up numbers. Nothing leaves this page and no payment is processed.
+              </p>
+            </div>
+          )}
+
           <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-900">
-            Demo checkout: no card is charged and no bank account is involved. Placing the order records it and messages
-            the seller.
+            Demo checkout: no card is charged and no bank account is connected. Placing the order records it, messages
+            the seller, and prints your receipt.
           </p>
         </fieldset>
 

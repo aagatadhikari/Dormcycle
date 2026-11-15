@@ -14,6 +14,22 @@ import NotificationBell from "./NotificationBell";
 type Filters = { category: string; campus: string; condition: string; maxPrice: string; sort: string };
 const NO_FILTERS: Filters = { category: "", campus: "", condition: "", maxPrice: "", sort: "newest" };
 
+function HeroShot({ img, alt, tag, h }: { img: string; alt: string; tag: string; h: string }) {
+  return (
+    <figure className={`relative overflow-hidden rounded-2xl ring-1 ring-white/25 ${h}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`https://images.unsplash.com/${img}?w=640&q=70&auto=format&fit=crop`}
+        alt={alt}
+        className="h-full w-full object-cover"
+      />
+      <figcaption className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+        {tag}
+      </figcaption>
+    </figure>
+  );
+}
+
 function Card({ p, onOpen }: { p: Product; onOpen: () => void }) {
   const first = p.example
     ? p.example.image
@@ -217,7 +233,6 @@ export default function Marketplace() {
   const liveProducts = useMemo(() => products.filter((p) => p.status === "active"), [products]);
   const freeCount = liveProducts.filter((p) => p.price_cents === 0).length;
   const campusCount = new Set(liveProducts.map((p) => p.campus)).size;
-  const justListed = liveProducts.slice(0, 3);
 
   const activeFilters = Object.entries(filters).filter(([k, v]) => k !== "sort" && v).length;
 
@@ -426,52 +441,31 @@ export default function Marketplace() {
               </div>
               </div>
 
-              <aside className="rounded-2xl bg-white/10 p-5 ring-1 ring-white/20 backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">On campus right now</p>
-                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="text-2xl font-extrabold">{liveProducts.length}</p>
-                    <p className="text-xs text-white/65">listings</p>
+              <aside className="relative">
+                {/* A corner of campus life, changing hands. */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="space-y-3 sm:space-y-4">
+                    <HeroShot img="photo-1632119289059-793dd347950f" alt="A dorm room with a bed and a desk" tag="A room coming together" h="h-40 sm:h-56" />
+                    <HeroShot img="photo-1540961403310-79825242906e" alt="A mini fridge" tag="Mini fridge · $60" h="h-28 sm:h-36" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-extrabold">{freeCount}</p>
-                    <p className="text-xs text-white/65">free items</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-extrabold">{campusCount}</p>
-                    <p className="text-xs text-white/65">campuses</p>
+                  <div className="space-y-3 pt-6 sm:space-y-4 sm:pt-10">
+                    <HeroShot img="photo-1519219788971-8d9797e0928e" alt="A desk lamp" tag="Desk lamp · $12" h="h-28 sm:h-36" />
+                    <HeroShot img="photo-1495446815901-a7297e633e8d" alt="A stack of textbooks" tag="Textbooks · $40" h="h-40 sm:h-56" />
                   </div>
                 </div>
 
-                <div className="mt-5 border-t border-white/15 pt-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Just listed</p>
-                  {justListed.length > 0 ? (
-                    <ul className="mt-3 space-y-2">
-                      {justListed.map((p) => (
-                        <li key={p.id}>
-                          <button
-                            onClick={() => setSelected(p)}
-                            className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-white/10"
-                          >
-                            <span className="min-w-0 truncate">{p.title}</span>
-                            <span className="shrink-0 font-semibold text-[#86d5f2]">{price(p.price_cents)}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-3 text-sm text-white/70">
-                      Nothing listed yet — your old desk lamp could be the first thing another student finds here.
-                    </p>
-                  )}
+                <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white px-4 py-2 text-sm font-extrabold text-brand shadow-lg ring-1 ring-black/5">
+                  <Image src="/brand/logo.png" alt="" width={20} height={20} />
+                  Passed on, not tossed
                 </div>
 
-                <button
-                  onClick={() => { if (requireLogin()) setSellMode("sell"); }}
-                  className="btn btn-accent mt-5 w-full"
-                >
-                  List an item
-                </button>
+                <div className="mt-5 flex items-center justify-center gap-5 text-center text-xs text-white/70 sm:gap-7">
+                  <p><span className="mr-1.5 text-base font-extrabold text-white">{liveProducts.length}</span>listings</p>
+                  <span className="h-3 w-px bg-white/25" aria-hidden />
+                  <p><span className="mr-1.5 text-base font-extrabold text-white">{freeCount}</span>free</p>
+                  <span className="h-3 w-px bg-white/25" aria-hidden />
+                  <p><span className="mr-1.5 text-base font-extrabold text-white">{campusCount}</span>campuses</p>
+                </div>
               </aside>
               </div>
             </section>
