@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { supabase, imageUrl } from "@/lib/supabase";
+
+const CART_KEY = "dormcycle-cart";
 import { CAMPUSES, CATEGORIES, CONDITIONS, EXAMPLES, label, price, type Product } from "@/lib/data";
-import { AuthModal, InfoModal, ProductModal, SellModal } from "./Modals";
+import { AuthModal, DonateModal, InfoModal, ProductModal, SellModal } from "./Modals";
+import CartDrawer, { type CartItem } from "./CartDrawer";
 import ChatWidget from "./ChatWidget";
 import NotificationBell from "./NotificationBell";
 
@@ -48,6 +51,11 @@ export default function Marketplace() {
   const [authOpen, setAuthOpen] = useState(false);
   const [sellMode, setSellMode] = useState<"sell" | "donate" | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cartBusy, setCartBusy] = useState(false);
+  const [cartNote, setCartNote] = useState("");
   const [selected, setSelected] = useState<Product | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
@@ -81,6 +89,90 @@ export default function Marketplace() {
       sub.subscription.unsubscribe();
     };
   }, [load]);
+
+  // Restored after hydration so the server and first client render agree.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      try {
+        const saved = window.localStorage.getItem(CART_KEY);
+        if (saved) setCart(JSON.parse(saved) as CartItem[]);
+      } catch {
+        // A blocked or corrupt store just means an empty cart.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    } catch {
+      // Ignore: the cart still works for this page view.
+    }
+  }, [cart]);
+
+  function addToCart(p: Product) {
+    const first = p.example
+      ? p.example.image
+      : [...(p.product_images ?? [])].sort((a, b) => a.sort_order - b.sort_order).map((i) => imageUrl(i.storage_path))[0];
+    setCart((prev) =>
+      prev.some((i) => i.id === p.id)
+        ? prev
+        : [...prev, { id: p.id, title: p.title, price_cents: p.price_cents, seller_id: p.seller_id, image: first ?? null, example: !!p.example }],
+    );
+    setCartNote("");
+    setSelected(null);
+    setCartOpen(true);
+  }
+
+  // Checkout opens one chat per seller with the items and total, for a campus handoff.
+  async function checkout() {
+    if (!requireLogin() || !userId) return;
+    if (cart.some((i) => i.example)) {
+      return setCartNote("Example listings are just samples. Remove them to check out.");
+    }
+    if (cart.some((i) => i.seller_id === userId)) {
+      return setCartNote("One of these is your own listing. Remove it to check out.");
+    }
+    setCartBusy(true);
+    setCartNote("");
+    const bySeller = new Map<string, CartItem[]>();
+    cart.forEach((i) => bySeller.set(i.seller_id, [...(bySeller.get(i.seller_id) ?? []), i]));
+
+    let lastConversation: string | null = null;
+    for (const group of bySeller.values()) {
+      const { data: convId, error } = await supabase.rpc("start_conversation", { p_product_id: group[0].id });
+      if (error || !convId) {
+        setCartBusy(false);
+        return setCartNote(error?.message ?? "Could not reach that seller. The item may no longer be available.");
+      }
+      const lines = group.map((i) => `${i.title} (${price(i.price_cents)})`).join(", ");
+      const subtotal = group.reduce((sum, i) => sum + i.price_cents, 0);
+      const { error: msgErr } = await supabase.from("messages").insert({
+        conversation_id: convId,
+        sender_id: userId,
+        message_text: `Hi! I'd like to buy: ${lines}. Total ${price(subtotal)}. When and where can we meet?`,
+      });
+      if (msgErr) {
+        setCartBusy(false);
+        return setCartNote(msgErr.message);
+      }
+      lastConversation = convId as string;
+    }
+
+    setCart([]);
+    setCartBusy(false);
+    setCartOpen(false);
+    if (lastConversation) {
+      setChatId(lastConversation);
+      setChatOpen(true);
+    }
+  }
 
   const matches = useCallback(
     (p: Product) => {
@@ -129,6 +221,10 @@ export default function Marketplace() {
 
   function openSell(mode: "sell" | "donate") {
     if (requireLogin()) setSellMode(mode);
+  }
+
+  function openDonate() {
+    if (requireLogin()) setDonateOpen(true);
   }
 
   // Footer shortcuts jump back to the grid with a filter applied.
@@ -232,6 +328,7 @@ export default function Marketplace() {
             >
               Sell
             </button>
+            <button onClick={openDonate} className="btn btn-outline">Donate</button>
             {userId ? (
               <button onClick={() => supabase.auth.signOut()} className="text-sm font-medium text-ink hover:text-brand" title={userName}>Log out</button>
             ) : (
@@ -380,7 +477,7 @@ export default function Marketplace() {
               <h2 className="text-lg font-bold text-brand">Sell</h2>
               <ul className="mt-6 space-y-5 text-ink">
                 <li><button onClick={() => openSell("sell")} className="hover:text-brand">Sell an item</button></li>
-                <li><button onClick={() => openSell("donate")} className="hover:text-brand">Donate an item</button></li>
+                <li><button onClick={openDonate} className="hover:text-brand">Donate an item</button></li>
                 <li><button onClick={() => setInfo("selling")} className="hover:text-brand">Selling tips</button></li>
               </ul>
             </div>
@@ -406,7 +503,7 @@ export default function Marketplace() {
                     Leaving something behind at move-out? Post a photo and a short description, and pass it on to the
                     next student for free.
                   </p>
-                  <button onClick={() => openSell("donate")} className="btn btn-primary mt-4">Donate now</button>
+                  <button onClick={openDonate} className="btn btn-primary mt-4">Donate now</button>
                 </div>
               </div>
             </div>
@@ -440,11 +537,11 @@ export default function Marketplace() {
       {sellMode && userId && (
         <SellModal
           userId={userId}
-          donate={sellMode === "donate"}
           onClose={() => setSellMode(null)}
           onDone={() => { setSellMode(null); setTab("sell"); load(); }}
         />
       )}
+      {donateOpen && userId && <DonateModal userId={userId} onClose={() => setDonateOpen(false)} />}
       {info && <InfoModal topic={info} onClose={() => setInfo(null)} />}
       {selected && (
         <ProductModal
@@ -461,8 +558,19 @@ export default function Marketplace() {
             )
           }
           onChanged={() => { setSelected(null); load(); }}
+          onAddToCart={addToCart}
+          inCart={cart.some((i) => i.id === selected.id)}
         />
       )}
+      <CartDrawer
+        items={cart}
+        open={cartOpen}
+        setOpen={setCartOpen}
+        onRemove={(id) => setCart((prev) => prev.filter((i) => i.id !== id))}
+        onCheckout={checkout}
+        busy={cartBusy}
+        note={cartNote}
+      />
       <ChatWidget userId={userId} open={chatOpen} setOpen={setChatOpen} activeId={chatId} setActiveId={setChatId} onNeedLogin={() => setAuthOpen(true)} />
     </>
   );

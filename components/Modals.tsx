@@ -85,17 +85,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function SellModal({
-  userId,
-  donate = false,
-  onClose,
-  onDone,
-}: {
-  userId: string;
-  donate?: boolean;
-  onClose: () => void;
-  onDone: () => void;
-}) {
+export function SellModal({ userId, onClose, onDone }: { userId: string; onClose: () => void; onDone: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -113,7 +103,7 @@ export function SellModal({
     e.preventDefault();
     setError("");
     const fd = new FormData(e.currentTarget);
-    const cents = donate ? 0 : Math.round(parseFloat(String(fd.get("price"))) * 100);
+    const cents = Math.round(parseFloat(String(fd.get("price"))) * 100);
     if (!Number.isFinite(cents) || cents < 0) return setError("Enter a valid price.");
     if (cents !== 0 && cents < 50) return setError("Price must be $0 (free) or at least $0.50.");
     if (cents > 1_000_000) return setError("Maximum price is $10,000.");
@@ -158,14 +148,8 @@ export function SellModal({
   }
 
   return (
-    <Modal title={donate ? "Donate an item" : "Sell an item"} onClose={onClose}>
+    <Modal title="Sell an item" onClose={onClose}>
       {error && <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
-      {donate && (
-        <p className="mb-3 rounded-md bg-mist p-3 text-sm text-brand">
-          Donations are posted free. Add a photo and a short description, and it shows up under Free items for anyone on
-          campus to claim.
-        </p>
-      )}
       <form onSubmit={submit} className="space-y-3">
         <div>
           <label className="label" htmlFor="photos">Photos (up to {MAX_IMAGES})</label>
@@ -173,20 +157,18 @@ export function SellModal({
           {files.length > 0 && <p className="mt-1 text-xs text-ink">{files.length} photo{files.length > 1 ? "s" : ""} selected</p>}
         </div>
         <div>
-          <label className="label" htmlFor="title">{donate ? "What are you donating?" : "What are you selling?"}</label>
+          <label className="label" htmlFor="title">What are you selling?</label>
           <input id="title" name="title" required maxLength={120} className="input" />
         </div>
         <div>
           <label className="label" htmlFor="description">Description</label>
           <textarea id="description" name="description" required maxLength={5000} rows={3} className="input" />
         </div>
-        <div className={`grid gap-3 ${donate ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-          {!donate && (
-            <div>
-              <label className="label" htmlFor="price">Price (USD)</label>
-              <input id="price" name="price" type="number" step="0.01" min="0" required placeholder="0 = free" className="input" />
-            </div>
-          )}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="label" htmlFor="price">Price (USD)</label>
+            <input id="price" name="price" type="number" step="0.01" min="0" required placeholder="0 = free" className="input" />
+          </div>
           <div>
             <label className="label" htmlFor="category">Category</label>
             <select id="category" name="category" className="input">
@@ -212,9 +194,7 @@ export function SellModal({
             <input id="pickup_location" name="pickup_location" maxLength={120} placeholder="e.g. Library steps" className="input" />
           </div>
         </div>
-        <button disabled={busy} className="btn btn-primary w-full">
-          {busy ? "Posting…" : donate ? "Post donation" : "Publish listing"}
-        </button>
+        <button disabled={busy} className="btn btn-primary w-full">{busy ? "Publishing…" : "Publish listing"}</button>
       </form>
     </Modal>
   );
@@ -226,12 +206,16 @@ export function ProductModal({
   onClose,
   onMessage,
   onChanged,
+  onAddToCart,
+  inCart,
 }: {
   product: Product;
   userId: string | null;
   onClose: () => void;
   onMessage: (p: Product) => Promise<string | void>;
   onChanged: () => void;
+  onAddToCart: (p: Product) => void;
+  inCart: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -310,9 +294,14 @@ export function ProductModal({
           </div>
         ) : available ? (
           <div className="space-y-2">
-            <button disabled={busy} onClick={() => run(() => onMessage(product))} className="btn btn-primary w-full">
-              Message seller
-            </button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button onClick={() => onAddToCart(product)} disabled={inCart} className="btn btn-outline">
+                {inCart ? "In your cart" : "Add to cart"}
+              </button>
+              <button disabled={busy} onClick={() => run(() => onMessage(product))} className="btn btn-primary">
+                Message seller
+              </button>
+            </div>
             <p className="text-xs text-ink">
               Opens a chat with the seller to ask about the item and set up a campus handoff. Agree on payment between yourselves when you meet.
             </p>
@@ -372,6 +361,111 @@ export function InfoModal({ topic, onClose }: { topic: string; onClose: () => vo
           <p key={line}>{line}</p>
         ))}
       </div>
+    </Modal>
+  );
+}
+
+const DONATION_WINDOW = "Donations can only be accepted in the 4 days before the semester ends.";
+
+export function DonateModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  function pick(list: FileList | null) {
+    setError("");
+    const picked = Array.from(list ?? []);
+    if (picked.length > MAX_IMAGES) return setError(`Up to ${MAX_IMAGES} photos.`);
+    if (picked.some((f) => !f.type.startsWith("image/"))) return setError("Only image files are allowed.");
+    if (picked.some((f) => f.size > MAX_BYTES)) return setError("Each photo must be under 5 MB.");
+    setFiles(picked);
+  }
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    const fd = new FormData(e.currentTarget);
+    const address = String(fd.get("address") ?? "").trim();
+    const contact = String(fd.get("contact") ?? "").trim();
+    if (address.length < 5) return setError("Please enter the pickup address.");
+    if (contact.length < 5) return setError("Please enter a phone number or email we can reach you on.");
+    if (files.length === 0) return setError("Add at least one photo of the item.");
+
+    setBusy(true);
+    const paths: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `${userId}/donations/${crypto.randomUUID()}-${i}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("product-images").upload(path, f, { contentType: f.type });
+      if (upErr) {
+        setBusy(false);
+        return setError(`Photo upload failed: ${upErr.message}`);
+      }
+      paths.push(path);
+    }
+
+    const { error: insErr } = await supabase.from("donations").insert({
+      donor_id: userId,
+      item_title: String(fd.get("item_title")).trim(),
+      description: String(fd.get("description") ?? "").trim(),
+      address,
+      contact,
+      photos: paths,
+    });
+    setBusy(false);
+    if (insErr) return setError(insErr.message);
+    setDone(true);
+  }
+
+  if (done) {
+    return (
+      <Modal title="Donation submitted" onClose={onClose}>
+        <div className="space-y-4 text-sm text-ink">
+          <p className="rounded-md bg-mist p-3 text-brand">
+            Thanks! Your donation is logged and DormCycle will contact you to arrange collection.
+          </p>
+          <p>{DONATION_WINDOW} If the semester isn&apos;t ending yet, we&apos;ll hold your details until the window opens.</p>
+          <button onClick={onClose} className="btn btn-primary w-full">Done</button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title="Donate an item" onClose={onClose}>
+      <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <b>Please note:</b> {DONATION_WINDOW}
+      </p>
+      {error && <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      <form onSubmit={submit} className="space-y-3">
+        <div>
+          <label className="label" htmlFor="d-photos">Photos (up to {MAX_IMAGES})</label>
+          <input id="d-photos" type="file" accept="image/*" multiple onChange={(e) => pick(e.target.files)} className="input" />
+          {files.length > 0 && <p className="mt-1 text-xs text-ink">{files.length} photo{files.length > 1 ? "s" : ""} selected</p>}
+        </div>
+        <div>
+          <label className="label" htmlFor="item_title">What are you donating?</label>
+          <input id="item_title" name="item_title" required maxLength={120} className="input" />
+        </div>
+        <div>
+          <label className="label" htmlFor="d-description">Description</label>
+          <textarea id="d-description" name="description" rows={3} maxLength={2000} className="input" placeholder="Condition, size, anything a collector should know" />
+        </div>
+        <div>
+          <label className="label" htmlFor="address">Pickup address <span className="text-red-600">*</span></label>
+          <input id="address" name="address" required maxLength={300} className="input" placeholder="Hall and room number, or street address" />
+        </div>
+        <div>
+          <label className="label" htmlFor="contact">Contact info <span className="text-red-600">*</span></label>
+          <input id="contact" name="contact" required maxLength={160} className="input" placeholder="Phone number or email" />
+        </div>
+        <p className="text-xs text-ink">
+          Your address and contact details stay private — they go only to DormCycle, never onto a public listing.
+        </p>
+        <button disabled={busy} className="btn btn-primary w-full">{busy ? "Submitting…" : "Submit donation"}</button>
+      </form>
     </Modal>
   );
 }
