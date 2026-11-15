@@ -588,3 +588,184 @@ export function DonateModal({ userId, onClose }: { userId: string; onClose: () =
     </Modal>
   );
 }
+
+type CheckoutLine = { id: string; title: string; price_cents: number; seller_id: string; example?: boolean };
+
+export function CheckoutModal({
+  items,
+  onClose,
+  onPlace,
+  onViewMessages,
+}: {
+  items: CheckoutLine[];
+  onClose: () => void;
+  onPlace: (note: string) => Promise<{ error?: string; orderIds?: string[] }>;
+  onViewMessages: () => void;
+}) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [orderIds, setOrderIds] = useState<string[] | null>(null);
+
+  const total = items.reduce((sum, i) => sum + i.price_cents, 0);
+  const sellers = new Set(items.map((i) => i.seller_id)).size;
+
+  async function place(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const result = await onPlace(note.trim());
+    setBusy(false);
+    if (result.error) return setError(result.error);
+    setOrderIds(result.orderIds ?? []);
+  }
+
+  if (orderIds) {
+    return (
+      <Modal title="Order placed" onClose={onClose}>
+        <div className="space-y-4 text-sm">
+          <p className="rounded-md bg-mist p-3 text-brand">
+            Thanks! {sellers === 1 ? "The seller has" : `All ${sellers} sellers have`} been messaged to arrange your
+            campus handoff.
+          </p>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-ink">
+              {orderIds.length === 1 ? "Order number" : "Order numbers"}
+            </p>
+            <p className="font-mono font-semibold text-brand">
+              {orderIds.map((id) => `#${id.slice(0, 8).toUpperCase()}`).join("  ")}
+            </p>
+          </div>
+          <div className="flex items-center justify-between border-t border-slate-200 pt-3 font-bold text-brand">
+            <span>Total due at pickup</span>
+            <span>{price(total)}</span>
+          </div>
+          <p className="text-ink">Bring {price(total)} to the handoff. Nothing has been charged online.</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button onClick={onViewMessages} className="btn btn-primary">View messages</button>
+            <button onClick={onClose} className="btn btn-outline">Done</button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title="Checkout" onClose={onClose}>
+      <form onSubmit={place} className="space-y-4">
+        <div className="rounded-lg border border-slate-200">
+          {items.map((i) => (
+            <div key={i.id} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-sm last:border-b-0">
+              <span className="min-w-0 truncate">{i.title}</span>
+              <span className="shrink-0 font-semibold">{price(i.price_cents)}</span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between bg-surface px-3 py-2 font-bold text-brand">
+            <span>Total</span>
+            <span>{price(total)}</span>
+          </div>
+        </div>
+
+        <fieldset className="space-y-2 rounded-lg border border-slate-200 p-3">
+          <legend className="px-1 text-sm font-bold text-brand">Payment</legend>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="radio" name="pay" defaultChecked className="mt-1" />
+            <span>
+              <b>Pay at handoff</b>
+              <br />
+              <span className="text-ink">Cash or whatever you both agree on, when you meet on campus.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm opacity-60">
+            <input type="radio" name="pay" disabled className="mt-1" />
+            <span>
+              <b>Card payment</b> — coming soon
+              <br />
+              <span className="text-ink">Online card payment isn&apos;t connected yet.</span>
+            </span>
+          </label>
+          <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-900">
+            Demo checkout: no card is charged and no bank account is involved. Placing the order records it and messages
+            the seller.
+          </p>
+        </fieldset>
+
+        <div>
+          <label className="label" htmlFor="note">Note for the seller (optional)</label>
+          <textarea
+            id="note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            maxLength={300}
+            className="input"
+            placeholder="When you're free to meet, where on campus suits you…"
+          />
+        </div>
+
+        {error && <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+        <button disabled={busy} className="btn btn-primary w-full">
+          {busy ? "Placing order…" : `Place order · ${price(total)}`}
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+type OrderRow = {
+  id: string;
+  buyer_id: string;
+  seller_id: string;
+  amount_cents: number;
+  status: string;
+  created_at: string;
+  products: { title: string } | { title: string }[] | null;
+};
+
+export function OrdersModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [rows, setRows] = useState<OrderRow[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("orders")
+        .select("id,buyer_id,seller_id,amount_cents,status,created_at,products(title)")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (!cancelled) setRows((data ?? []) as OrderRow[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <Modal title="Your orders" onClose={onClose}>
+      {rows === null ? (
+        <p className="p-4 text-center text-sm text-ink">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="p-4 text-center text-sm text-ink">No orders yet. Add something to your cart and check out.</p>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {rows.map((o) => {
+            const prod = Array.isArray(o.products) ? o.products[0] : o.products;
+            return (
+              <div key={o.id} className="flex items-center gap-3 py-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{prod?.title ?? "Removed listing"}</p>
+                  <p className="text-xs text-ink">
+                    {o.buyer_id === userId ? "You bought this" : "You sold this"} · #{o.id.slice(0, 8).toUpperCase()} ·{" "}
+                    {listedLabel(o.created_at)}
+                  </p>
+                </div>
+                <span className="shrink-0 font-semibold text-brand">{price(o.amount_cents)}</span>
+                <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs capitalize">{o.status}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Modal>
+  );
+}

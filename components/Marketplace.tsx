@@ -6,7 +6,7 @@ import { supabase, imageUrl } from "@/lib/supabase";
 
 const CART_KEY = "dormcycle-cart";
 import { CAMPUSES, CATEGORIES, CONDITIONS, EXAMPLES, label, price, type Product } from "@/lib/data";
-import { AuthModal, DonateModal, InfoModal, ProductModal, SellModal } from "./Modals";
+import { AuthModal, CheckoutModal, DonateModal, InfoModal, OrdersModal, ProductModal, SellModal } from "./Modals";
 import CartDrawer, { type CartItem } from "./CartDrawer";
 import ChatWidget from "./ChatWidget";
 import NotificationBell from "./NotificationBell";
@@ -54,8 +54,9 @@ export default function Marketplace() {
   const [donateOpen, setDonateOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [cartBusy, setCartBusy] = useState(false);
   const [cartNote, setCartNote] = useState("");
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
@@ -130,8 +131,8 @@ export default function Marketplace() {
     setCartOpen(true);
   }
 
-  // Checkout opens one chat per seller with the items and total, for a campus handoff.
-  async function checkout() {
+  // Checkout opens the order form; the cart only needs to be valid first.
+  function startCheckout() {
     if (!requireLogin() || !userId) return;
     if (cart.some((i) => i.example)) {
       return setCartNote("Example listings are just samples. Remove them to check out.");
@@ -139,39 +140,54 @@ export default function Marketplace() {
     if (cart.some((i) => i.seller_id === userId)) {
       return setCartNote("One of these is your own listing. Remove it to check out.");
     }
-    setCartBusy(true);
     setCartNote("");
+    setCartOpen(false);
+    setCheckoutOpen(true);
+  }
+
+  // Demo checkout: records a pending order per item and messages each seller. No payment is taken.
+  async function placeOrder(note: string): Promise<{ error?: string; orderIds?: string[] }> {
+    if (!userId) return { error: "Please log in again." };
+    const orderIds: string[] = [];
+
+    for (const item of cart) {
+      const { data, error } = await supabase
+        .from("orders")
+        .insert({
+          buyer_id: userId,
+          seller_id: item.seller_id,
+          product_id: item.id,
+          amount_cents: item.price_cents,
+          currency: "usd",
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (error || !data) return { error: error?.message ?? "Could not record the order." };
+      orderIds.push(data.id as string);
+    }
+
     const bySeller = new Map<string, CartItem[]>();
     cart.forEach((i) => bySeller.set(i.seller_id, [...(bySeller.get(i.seller_id) ?? []), i]));
 
-    let lastConversation: string | null = null;
     for (const group of bySeller.values()) {
       const { data: convId, error } = await supabase.rpc("start_conversation", { p_product_id: group[0].id });
-      if (error || !convId) {
-        setCartBusy(false);
-        return setCartNote(error?.message ?? "Could not reach that seller. The item may no longer be available.");
-      }
+      if (error || !convId) return { error: error?.message ?? "Order saved, but the seller could not be messaged." };
       const lines = group.map((i) => `${i.title} (${price(i.price_cents)})`).join(", ");
       const subtotal = group.reduce((sum, i) => sum + i.price_cents, 0);
-      const { error: msgErr } = await supabase.from("messages").insert({
-        conversation_id: convId,
-        sender_id: userId,
-        message_text: `Hi! I'd like to buy: ${lines}. Total ${price(subtotal)}. When and where can we meet?`,
-      });
-      if (msgErr) {
-        setCartBusy(false);
-        return setCartNote(msgErr.message);
-      }
-      lastConversation = convId as string;
+      const message =
+        `Order placed on DormCycle: ${lines}. Total ${price(subtotal)}, paid at handoff.` +
+        (note ? ` Note: ${note}` : "") +
+        " When and where can we meet?";
+      const { error: msgErr } = await supabase
+        .from("messages")
+        .insert({ conversation_id: convId, sender_id: userId, message_text: message });
+      if (msgErr) return { error: msgErr.message };
+      setChatId(convId as string);
     }
 
     setCart([]);
-    setCartBusy(false);
-    setCartOpen(false);
-    if (lastConversation) {
-      setChatId(lastConversation);
-      setChatOpen(true);
-    }
+    return { orderIds };
   }
 
   const matches = useCallback(
@@ -198,6 +214,11 @@ export default function Marketplace() {
   const forSale = useMemo(() => products.filter((p) => p.status === "active" && matches(p)).sort(sortFn), [products, matches, sortFn]);
   const examples = useMemo(() => EXAMPLES.filter(matches).sort(sortFn), [matches, sortFn]);
   const mine = useMemo(() => products.filter((p) => p.seller_id === userId), [products, userId]);
+  const liveProducts = useMemo(() => products.filter((p) => p.status === "active"), [products]);
+  const freeCount = liveProducts.filter((p) => p.price_cents === 0).length;
+  const campusCount = new Set(liveProducts.map((p) => p.campus)).size;
+  const justListed = liveProducts.slice(0, 3);
+
   const activeFilters = Object.entries(filters).filter(([k, v]) => k !== "sort" && v).length;
 
   function requireLogin() {
@@ -342,6 +363,8 @@ export default function Marketplace() {
         {tab === "buy" ? (
           <>
             <section className="relative overflow-hidden rounded-2xl bg-[radial-gradient(120%_130%_at_88%_22%,#0a6e94_0%,#065277_38%,#004165_62%,#00263d_100%)] px-6 pb-8 pt-12 text-white sm:px-10 sm:pb-10 sm:pt-14">
+              <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+              <div>
               <p className="flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
                 <span className="h-2.5 w-2.5 rounded-full border-2 border-accent" aria-hidden />
                 The student marketplace, close to home
@@ -400,6 +423,56 @@ export default function Marketplace() {
                   <p className="mt-1 font-semibold">Close by</p>
                   <p className="text-xs text-white/60">Meet on campus</p>
                 </div>
+              </div>
+              </div>
+
+              <aside className="rounded-2xl bg-white/10 p-5 ring-1 ring-white/20 backdrop-blur-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">On campus right now</p>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-2xl font-extrabold">{liveProducts.length}</p>
+                    <p className="text-xs text-white/65">listings</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-extrabold">{freeCount}</p>
+                    <p className="text-xs text-white/65">free items</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-extrabold">{campusCount}</p>
+                    <p className="text-xs text-white/65">campuses</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 border-t border-white/15 pt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Just listed</p>
+                  {justListed.length > 0 ? (
+                    <ul className="mt-3 space-y-2">
+                      {justListed.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            onClick={() => setSelected(p)}
+                            className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-white/10"
+                          >
+                            <span className="min-w-0 truncate">{p.title}</span>
+                            <span className="shrink-0 font-semibold text-[#86d5f2]">{price(p.price_cents)}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-white/70">
+                      Nothing listed yet — your old desk lamp could be the first thing another student finds here.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => { if (requireLogin()) setSellMode("sell"); }}
+                  className="btn btn-accent mt-5 w-full"
+                >
+                  List an item
+                </button>
+              </aside>
               </div>
             </section>
 
@@ -470,6 +543,7 @@ export default function Marketplace() {
                 <li><button onClick={() => setInfo("about")} className="hover:text-brand">About us</button></li>
                 <li><button onClick={() => setInfo("how")} className="hover:text-brand">How it works</button></li>
                 <li><button onClick={() => setInfo("safety")} className="hover:text-brand">Campus safety</button></li>
+                <li><button onClick={() => { if (requireLogin()) setOrdersOpen(true); }} className="hover:text-brand">Your orders</button></li>
               </ul>
             </div>
 
@@ -543,6 +617,15 @@ export default function Marketplace() {
       )}
       {donateOpen && userId && <DonateModal userId={userId} onClose={() => setDonateOpen(false)} />}
       {info && <InfoModal topic={info} onClose={() => setInfo(null)} />}
+      {checkoutOpen && userId && (
+        <CheckoutModal
+          items={cart}
+          onClose={() => setCheckoutOpen(false)}
+          onPlace={placeOrder}
+          onViewMessages={() => { setCheckoutOpen(false); setChatOpen(true); }}
+        />
+      )}
+      {ordersOpen && userId && <OrdersModal userId={userId} onClose={() => setOrdersOpen(false)} />}
       {selected && (
         <ProductModal
           key={selected.id}
@@ -573,8 +656,8 @@ export default function Marketplace() {
         open={cartOpen}
         setOpen={setCartOpen}
         onRemove={(id) => setCart((prev) => prev.filter((i) => i.id !== id))}
-        onCheckout={checkout}
-        busy={cartBusy}
+        onCheckout={startCheckout}
+        busy={false}
         note={cartNote}
       />
       <ChatWidget userId={userId} open={chatOpen} setOpen={setChatOpen} activeId={chatId} setActiveId={setChatId} onNeedLogin={() => setAuthOpen(true)} />
