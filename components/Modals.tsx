@@ -280,9 +280,14 @@ export function ProductModal({
         {error && <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
 
         {product.example ? (
-          <p className="rounded-md bg-mist p-3 text-sm text-brand">
-            This is an example listing to show how DormCycle works. Real student listings appear at the top of the page.
-          </p>
+          <div className="space-y-2">
+            <p className="rounded-md bg-mist p-3 text-sm text-brand">
+              This is an example listing to show how DormCycle works. Real student listings appear at the top of the page.
+            </p>
+            <button onClick={() => onAddToCart(product)} disabled={inCart} className="btn btn-outline w-full">
+              {inCart ? "In your cart" : "Add to cart"}
+            </button>
+          </div>
         ) : mine ? (
           <div className="flex flex-wrap gap-2">
             {available ? (
