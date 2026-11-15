@@ -558,6 +558,12 @@ export default function Marketplace() {
             )
           }
           onChanged={() => { setSelected(null); load(); }}
+          onOffer={(p, cents) =>
+            openChat(
+              p,
+              `Hi! Would you take ${price(cents)} for "${p.title}"? It's listed at ${price(p.price_cents)}.`,
+            )
+          }
           onAddToCart={addToCart}
           inCart={cart.some((i) => i.id === selected.id)}
         />
