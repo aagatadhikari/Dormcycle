@@ -84,6 +84,7 @@ export default function Marketplace() {
   const [cartOpen, setCartOpen] = useState(false);
   const [cartNote, setCartNote] = useState("");
   const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [cartReady, setCartReady] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -138,6 +139,7 @@ export default function Marketplace() {
       } catch {
         // A blocked or corrupt store just means an empty cart.
       }
+      setCartReady(true);
     })();
     return () => {
       cancelled = true;
@@ -168,8 +170,9 @@ export default function Marketplace() {
     };
   }, []);
 
+  // Wait for the stored cart before acting, or a "Buy now" arrives at an empty cart.
   useEffect(() => {
-    if (!pendingCheckout) return;
+    if (!pendingCheckout || !cartReady) return;
     let cancelled = false;
     (async () => {
       await Promise.resolve();
@@ -186,15 +189,15 @@ export default function Marketplace() {
     return () => {
       cancelled = true;
     };
-  }, [pendingCheckout, userId, cart]);
+  }, [pendingCheckout, cartReady, userId, cart]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(CART_KEY, JSON.stringify(cart));
+      if (cartReady) window.localStorage.setItem(CART_KEY, JSON.stringify(cart));
     } catch {
       // Ignore: the cart still works for this page view.
     }
-  }, [cart]);
+  }, [cart, cartReady]);
 
   // Checkout opens the order form; the cart only needs to be valid first.
   function startCheckout() {
