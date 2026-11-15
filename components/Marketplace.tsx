@@ -230,7 +230,11 @@ export default function Marketplace() {
   const forSale = useMemo(() => products.filter((p) => p.status === "active" && matches(p)).sort(sortFn), [products, matches, sortFn]);
   const examples = useMemo(() => EXAMPLES.filter(matches).sort(sortFn), [matches, sortFn]);
   const mine = useMemo(() => products.filter((p) => p.seller_id === userId), [products, userId]);
-  const liveProducts = useMemo(() => products.filter((p) => p.status === "active"), [products]);
+  // Hero counts cover everything on the page, examples included, so the board never reads as empty.
+  const liveProducts = useMemo(
+    () => [...products.filter((p) => p.status === "active"), ...EXAMPLES],
+    [products],
+  );
   const freeCount = liveProducts.filter((p) => p.price_cents === 0).length;
   const campusCount = new Set(liveProducts.map((p) => p.campus)).size;
 
